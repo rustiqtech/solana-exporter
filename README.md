@@ -20,9 +20,9 @@ Requires=solana.service
 
 [Service]
 User=solana
-TimeoutStartSec=20
 Restart=always
-ExecStart=%h/.cargo/bin/solana-exporter
+RestartSec=20
+ExecStart=/home/solana/.cargo/bin/solana-exporter
 
 [Install]
 WantedBy=multi-user.target
