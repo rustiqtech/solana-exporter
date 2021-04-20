@@ -20,10 +20,8 @@ use log::{debug, error};
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge_vec, Error as PrometheusError, GaugeVec, IntGaugeVec,
 };
-use serde::Deserialize;
-use serde_json::Value;
+use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
 use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
-use syslog::Facility;
 
 const PUBKEY_LABEL: &'static str = "pubkey";
 
@@ -35,7 +33,7 @@ lazy_static! {
     )
     .unwrap();
     static ref IS_DELINQUENT: GaugeVec = register_gauge_vec!(
-        "solana_validator_is_delinquent",
+        "solana_validator_delinquent",
         "Whether a validator is delinquent",
         &[PUBKEY_LABEL]
     )
@@ -60,43 +58,15 @@ lazy_static! {
     .unwrap();
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct VoteAccount {
-    activated_stake: u64,
-    commission: u64,
-    epoch_credits: Vec<Vec<u64>>,
-    epoch_vote_account: bool,
-    last_vote: u64,
-    node_pubkey: String,
-    root_slot: u64,
-    vote_pubkey: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetVoteAccountsResult {
-    current: Vec<VoteAccount>,
-    delinquent: Vec<VoteAccount>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetVoteAccountsResponse {
-    result: GetVoteAccountsResult,
-}
-
 /// Application config.
 struct Config {
     /// Solana RPC address.
     rpc: String,
     /// Prometheus target socket address.
     target: SocketAddr,
-    /// Verbosity setting.
-    verbose: bool,
 }
 
-fn export_metrics(vote_accounts: &GetVoteAccountsResult) -> Result<(), PrometheusError> {
+fn export_metrics(vote_accounts: &RpcVoteAccountStatus) -> Result<(), PrometheusError> {
     ACTIVE_VALIDATORS
         .get_metric_with_label_values(&["current"])
         .map(|m| m.set(vote_accounts.current.len() as i64))?;
@@ -155,24 +125,13 @@ fn cli() -> Result<Config, Box<dyn StdError>> {
                 .help("Prometheus target endpoint address")
                 .takes_value(true),
         )
-        .arg(
-            Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-                .help("Chatty mode"),
-        )
         .get_matches();
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
     let target: SocketAddr = matches.value_of("target").unwrap().parse()?;
     let rpc: String = matches.value_of("rpc").unwrap().to_owned();
-    let verbose = matches.is_present("verbose");
 
-    Ok(Config {
-        rpc,
-        target,
-        verbose,
-    })
+    Ok(Config { rpc, target })
 }
 
 /// Error result logger.
@@ -190,43 +149,18 @@ impl<T, E: Debug> LogErr for Result<T, E> {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let config = cli()?;
-    let log_level = if config.verbose {
-        log::LevelFilter::Debug
-    } else {
-        log::LevelFilter::Warn
-    };
-    syslog::init(Facility::LOG_USER, log_level, Some("solana-exporter"))?;
 
     let exporter = prometheus_exporter::start(config.target)?;
-    let duration = Duration::from_millis(1000);
-    let client = reqwest::Client::new();
-    let rpc_call: Value = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "getVoteAccounts",
-        "params": [
-            {
-                "commitment": "recent"
-            }
-        ]
-    });
+    let duration = Duration::from_secs(1);
+    let client = RpcClient::new(config.rpc);
 
     loop {
         let _guard = exporter.wait_duration(duration);
         debug!("Updating metrics");
-        let vote_accounts_data: Value = client
-            .post(&config.rpc)
-            .json(&rpc_call)
-            .send()
-            .await
-            .log_err("Receive error")?
-            .json()
-            .await
-            .log_err("JSON response error")?;
-        let vote_accounts: GetVoteAccountsResponse = serde_json::from_value(vote_accounts_data)?;
-        export_metrics(&vote_accounts.result).log_err("Failed to export metrics")?;
+        let vote_account_status = client.get_vote_accounts()?;
+        export_metrics(&vote_account_status).log_err("Failed to export metrics")?;
     }
 }
