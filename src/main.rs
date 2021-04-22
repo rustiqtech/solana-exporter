@@ -18,9 +18,11 @@ extern crate lazy_static;
 use clap::{App, Arg};
 use log::{debug, error};
 use prometheus_exporter::prometheus::{
-    register_gauge_vec, register_int_gauge_vec, Error as PrometheusError, GaugeVec, IntGaugeVec,
+    register_gauge_vec, register_int_gauge, register_int_gauge_vec, Error as PrometheusError,
+    GaugeVec, IntGauge, IntGaugeVec,
 };
 use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
+use solana_sdk::epoch_info::EpochInfo;
 use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
 
 const PUBKEY_LABEL: &'static str = "pubkey";
@@ -56,6 +58,31 @@ lazy_static! {
         &[PUBKEY_LABEL]
     )
     .unwrap();
+    static ref TRANSACTION_COUNT: IntGauge = register_int_gauge!(
+        "solana_transaction_count",
+        "Total number of confirmed transactions since genesis"
+    )
+    .unwrap();
+    static ref SLOT_HEIGHT: IntGauge =
+        register_int_gauge!("solana_slot_height", "Last confirmed slot height").unwrap();
+    static ref CURRENT_EPOCH: IntGauge =
+        register_int_gauge!("solana_current_epoch", "Current epoch").unwrap();
+    static ref CURRENT_EPOCH_FIRST_SLOT: IntGauge = register_int_gauge!(
+        "solana_current_epoch_first_slot",
+        "Current epoch's first slot"
+    )
+    .unwrap();
+    static ref CURRENT_EPOCH_LAST_SLOT: IntGauge = register_int_gauge!(
+        "solana_current_epoch_last_slot",
+        "Current epoch's last slot"
+    )
+    .unwrap();
+    static ref LEADER_SLOTS: IntGaugeVec = register_int_gauge_vec!(
+        "solana_leader_slots",
+        "Leader slots per validator ordered by skip rate",
+        &[PUBKEY_LABEL]
+    )
+    .unwrap();
 }
 
 /// Application config.
@@ -66,7 +93,7 @@ struct Config {
     target: SocketAddr,
 }
 
-fn export_metrics(vote_accounts: &RpcVoteAccountStatus) -> Result<(), PrometheusError> {
+fn export_vote_accounts(vote_accounts: &RpcVoteAccountStatus) -> Result<(), PrometheusError> {
     ACTIVE_VALIDATORS
         .get_metric_with_label_values(&["current"])
         .map(|m| m.set(vote_accounts.current.len() as i64))?;
@@ -98,6 +125,19 @@ fn export_metrics(vote_accounts: &RpcVoteAccountStatus) -> Result<(), Prometheus
             .get_metric_with_label_values(&[&*v.vote_pubkey])
             .map(|m| m.set(v.root_slot as i64))?;
     }
+
+    Ok(())
+}
+
+fn export_epoch_info(epoch_info: &EpochInfo) -> Result<(), PrometheusError> {
+    let first_slot = epoch_info.absolute_slot as i64;
+    let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
+    TRANSACTION_COUNT.set(epoch_info.transaction_count.unwrap_or_default() as i64);
+    SLOT_HEIGHT.set(epoch_info.absolute_slot as i64);
+    CURRENT_EPOCH.set(epoch_info.epoch as i64);
+    CURRENT_EPOCH_FIRST_SLOT.set(first_slot);
+    CURRENT_EPOCH_LAST_SLOT.set(last_slot);
+
     Ok(())
 }
 
@@ -152,7 +192,6 @@ impl<T, E: Debug> LogErr for Result<T, E> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let config = cli()?;
-
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc);
@@ -161,6 +200,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _guard = exporter.wait_duration(duration);
         debug!("Updating metrics");
         let vote_account_status = client.get_vote_accounts()?;
-        export_metrics(&vote_account_status).log_err("Failed to export metrics")?;
+        export_vote_accounts(&vote_account_status)
+            .log_err("Failed to export vote account metrics")?;
+        let epoch_info = client.get_epoch_info()?;
+        export_epoch_info(&epoch_info).log_err("Failed to export epoch info metrics")?;
     }
 }
