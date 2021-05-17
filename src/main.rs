@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[macro_use]
-extern crate lazy_static;
-
 use clap::{App, Arg};
 use log::{debug, error};
+use once_cell::sync::Lazy;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, Error as PrometheusError,
     GaugeVec, IntGauge, IntGaugeVec,
@@ -27,63 +25,89 @@ use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration}
 
 const PUBKEY_LABEL: &'static str = "pubkey";
 
-lazy_static! {
-    static ref ACTIVE_VALIDATORS: IntGaugeVec = register_int_gauge_vec!(
+static ACTIVE_VALIDATORS: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
         "solana_active_validators",
         "Total number of active validators",
         &["state"]
     )
-    .unwrap();
-    static ref IS_DELINQUENT: GaugeVec = register_gauge_vec!(
+    .unwrap()
+});
+
+static IS_DELINQUENT: Lazy<GaugeVec> = Lazy::new(|| {
+    register_gauge_vec!(
         "solana_validator_delinquent",
         "Whether a validator is delinquent",
         &[PUBKEY_LABEL]
     )
-    .unwrap();
-    static ref ACTIVATED_STAKE: IntGaugeVec = register_int_gauge_vec!(
+    .unwrap()
+});
+
+static ACTIVATED_STAKE: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
         "solana_validator_activated_stake",
         "Activated stake of a validator",
         &[PUBKEY_LABEL]
     )
-    .unwrap();
-    static ref LAST_VOTE: IntGaugeVec = register_int_gauge_vec!(
+    .unwrap()
+});
+
+static LAST_VOTE: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
         "solana_validator_last_vote",
         "Last voted slot of a validator",
         &[PUBKEY_LABEL]
     )
-    .unwrap();
-    static ref ROOT_SLOT: IntGaugeVec = register_int_gauge_vec!(
-        "solana_validator_root_slot",
-        "Root slot of a validator",
+    .unwrap()
+});
+
+static ROOT_SLOT: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "solana_validator_last_vote",
+        "Last voted slot of a validator",
         &[PUBKEY_LABEL]
     )
-    .unwrap();
-    static ref TRANSACTION_COUNT: IntGauge = register_int_gauge!(
+    .unwrap()
+});
+
+static TRANSACTION_COUNT: Lazy<IntGauge> = Lazy::new(|| {
+    register_int_gauge!(
         "solana_transaction_count",
         "Total number of confirmed transactions since genesis"
     )
-    .unwrap();
-    static ref SLOT_HEIGHT: IntGauge =
-        register_int_gauge!("solana_slot_height", "Last confirmed slot height").unwrap();
-    static ref CURRENT_EPOCH: IntGauge =
-        register_int_gauge!("solana_current_epoch", "Current epoch").unwrap();
-    static ref CURRENT_EPOCH_FIRST_SLOT: IntGauge = register_int_gauge!(
+    .unwrap()
+});
+
+static SLOT_HEIGHT: Lazy<IntGauge> =
+    Lazy::new(|| register_int_gauge!("solana_slot_height", "Last confirmed slot height").unwrap());
+
+static CURRENT_EPOCH: Lazy<IntGauge> =
+    Lazy::new(|| register_int_gauge!("solana_current_epoch", "Current epoch").unwrap());
+
+static CURRENT_EPOCH_FIRST_SLOT: Lazy<IntGauge> = Lazy::new(|| {
+    register_int_gauge!(
         "solana_current_epoch_first_slot",
         "Current epoch's first slot"
     )
-    .unwrap();
-    static ref CURRENT_EPOCH_LAST_SLOT: IntGauge = register_int_gauge!(
+    .unwrap()
+});
+
+static CURRENT_EPOCH_LAST_SLOT: Lazy<IntGauge> = Lazy::new(|| {
+    register_int_gauge!(
         "solana_current_epoch_last_slot",
         "Current epoch's last slot"
     )
-    .unwrap();
-    static ref LEADER_SLOTS: IntGaugeVec = register_int_gauge_vec!(
+    .unwrap()
+});
+
+static LEADER_SLOTS: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
         "solana_leader_slots",
         "Leader slots per validator ordered by skip rate",
         &[PUBKEY_LABEL]
     )
-    .unwrap();
-}
+    .unwrap()
+});
 
 /// Application config.
 struct Config {
