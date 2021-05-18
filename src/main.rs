@@ -21,6 +21,7 @@ use solana_sdk::epoch_info::EpochInfo;
 use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
 
 pub mod gauges;
+pub mod geolocation;
 
 /// Application config.
 struct Config {
