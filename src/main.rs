@@ -15,9 +15,7 @@
 use crate::gauges::PrometheusGauges;
 use clap::{App, Arg};
 use log::{debug, error};
-use prometheus_exporter::prometheus::Error as PrometheusError;
-use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
-use solana_sdk::epoch_info::EpochInfo;
+use solana_client::rpc_client::RpcClient;
 use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
 
 pub mod gauges;
@@ -29,72 +27,6 @@ struct Config {
     rpc: String,
     /// Prometheus target socket address.
     target: SocketAddr,
-}
-
-fn export_vote_accounts(
-    gauges: &PrometheusGauges,
-    vote_accounts: &RpcVoteAccountStatus,
-) -> Result<(), PrometheusError> {
-    gauges
-        .active_validators
-        .get_metric_with_label_values(&["current"])
-        .map(|m| m.set(vote_accounts.current.len() as i64))?;
-
-    gauges
-        .active_validators
-        .get_metric_with_label_values(&["delinquent"])
-        .map(|m| m.set(vote_accounts.delinquent.len() as i64))?;
-
-    for v in &vote_accounts.current {
-        gauges
-            .is_delinquent
-            .get_metric_with_label_values(&[&*v.vote_pubkey])
-            .map(|m| m.set(0.))?;
-    }
-    for v in &vote_accounts.delinquent {
-        gauges
-            .is_delinquent
-            .get_metric_with_label_values(&[&*v.vote_pubkey])
-            .map(|m| m.set(1.))?;
-    }
-    for v in vote_accounts
-        .current
-        .iter()
-        .chain(vote_accounts.delinquent.iter())
-    {
-        gauges
-            .activated_stake
-            .get_metric_with_label_values(&[&*v.vote_pubkey])
-            .map(|m| m.set(v.activated_stake as i64))?;
-        gauges
-            .last_vote
-            .get_metric_with_label_values(&[&*v.vote_pubkey])
-            .map(|m| m.set(v.last_vote as i64))?;
-        gauges
-            .root_slot
-            .get_metric_with_label_values(&[&*v.vote_pubkey])
-            .map(|m| m.set(v.root_slot as i64))?;
-    }
-
-    Ok(())
-}
-
-fn export_epoch_info(
-    gauges: &PrometheusGauges,
-    epoch_info: &EpochInfo,
-) -> Result<(), PrometheusError> {
-    let first_slot = epoch_info.absolute_slot as i64;
-    let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
-
-    gauges
-        .transaction_count
-        .set(epoch_info.transaction_count.unwrap_or_default() as i64);
-    gauges.slot_height.set(epoch_info.absolute_slot as i64);
-    gauges.current_epoch.set(epoch_info.epoch as i64);
-    gauges.current_epoch_first_slot.set(first_slot);
-    gauges.current_epoch_last_slot.set(last_slot);
-
-    Ok(())
 }
 
 /// Gets config parameters from the command line.
@@ -157,10 +89,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let _guard = exporter.wait_duration(duration);
         debug!("Updating metrics");
-        let vote_account_status = client.get_vote_accounts()?;
-        export_vote_accounts(&gauges, &vote_account_status)
+        gauges
+            .export_vote_accounts(&client.get_vote_accounts()?)
             .log_err("Failed to export vote account metrics")?;
-        let epoch_info = client.get_epoch_info()?;
-        export_epoch_info(&gauges, &epoch_info).log_err("Failed to export epoch info metrics")?;
+        gauges
+            .export_epoch_info(&client.get_epoch_info()?)
+            .log_err("Failed to export epoch info metrics")?;
     }
 }

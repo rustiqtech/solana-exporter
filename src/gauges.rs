@@ -1,6 +1,9 @@
+use prometheus_exporter::prometheus::Error as PrometheusError;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
 };
+use solana_client::rpc_response::RpcVoteAccountStatus;
+use solana_sdk::epoch_info::EpochInfo;
 
 pub const PUBKEY_LABEL: &str = "pubkey";
 
@@ -76,5 +79,62 @@ impl Default for PrometheusGauges {
             )
             .unwrap(),
         }
+    }
+}
+
+impl PrometheusGauges {
+    pub fn export_vote_accounts(
+        &self,
+        vote_accounts: &RpcVoteAccountStatus,
+    ) -> Result<(), PrometheusError> {
+        self.active_validators
+            .get_metric_with_label_values(&["current"])
+            .map(|m| m.set(vote_accounts.current.len() as i64))?;
+
+        self.active_validators
+            .get_metric_with_label_values(&["delinquent"])
+            .map(|m| m.set(vote_accounts.delinquent.len() as i64))?;
+
+        for v in &vote_accounts.current {
+            self.is_delinquent
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(0.))?;
+        }
+        for v in &vote_accounts.delinquent {
+            self.is_delinquent
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(1.))?;
+        }
+        for v in vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+        {
+            self.activated_stake
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(v.activated_stake as i64))?;
+            self.last_vote
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(v.last_vote as i64))?;
+            self.root_slot
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(v.root_slot as i64))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> Result<(), PrometheusError> {
+        let first_slot = epoch_info.absolute_slot as i64;
+        let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
+
+        self.transaction_count
+            .set(epoch_info.transaction_count.unwrap_or_default() as i64);
+        self.slot_height.set(epoch_info.absolute_slot as i64);
+        self.current_epoch.set(epoch_info.epoch as i64);
+        self.current_epoch_first_slot.set(first_slot);
+        self.current_epoch_last_slot.set(last_slot);
+
+        Ok(())
     }
 }
