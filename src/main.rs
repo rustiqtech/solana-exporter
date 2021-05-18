@@ -89,11 +89,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let _guard = exporter.wait_duration(duration);
         debug!("Updating metrics");
+
+        // Get metrics we need
+        let vote_accounts = client.get_vote_accounts()?;
+        let epoch_info = client.get_epoch_info()?;
+        let nodes = client.get_cluster_nodes()?;
+
         gauges
-            .export_vote_accounts(&client.get_vote_accounts()?)
+            .export_vote_accounts(&vote_accounts)
             .log_err("Failed to export vote account metrics")?;
         gauges
-            .export_epoch_info(&client.get_epoch_info()?)
+            .export_epoch_info(&epoch_info)
             .log_err("Failed to export epoch info metrics")?;
+        gauges
+            .export_ip_addresses(&nodes, &vote_accounts)
+            .log_err("Failed to export IP address info metrics")?;
     }
 }

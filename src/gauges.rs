@@ -2,8 +2,9 @@ use prometheus_exporter::prometheus::Error as PrometheusError;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
 };
-use solana_client::rpc_response::RpcVoteAccountStatus;
+use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
+use std::collections::HashSet;
 
 pub const PUBKEY_LABEL: &str = "pubkey";
 
@@ -49,7 +50,7 @@ impl Default for PrometheusGauges {
             )
             .unwrap(),
             root_slot: register_int_gauge_vec!(
-                "solana_validator_last_vote",
+                "solana_validator_root_slot",
                 "Last voted slot of a validator",
                 &[PUBKEY_LABEL]
             )
@@ -134,6 +135,29 @@ impl PrometheusGauges {
         self.current_epoch.set(epoch_info.epoch as i64);
         self.current_epoch_first_slot.set(first_slot);
         self.current_epoch_last_slot.set(last_slot);
+
+        Ok(())
+    }
+
+    // For now, this will export the IP addresses of active voting accounts with a node.
+    // TODO: This needs to actually export to a Prometheus gauge.
+    pub fn export_ip_addresses(
+        &self,
+        nodes: &[RpcContactInfo],
+        vote_accounts: &RpcVoteAccountStatus,
+    ) -> Result<(), PrometheusError> {
+        let set = vote_accounts
+            .current
+            .iter()
+            .cloned()
+            .map(|n| n.node_pubkey)
+            .collect::<HashSet<String>>();
+
+        let ip = nodes
+            .iter()
+            .cloned()
+            .filter(|n| set.contains(&n.pubkey))
+            .collect::<Vec<RpcContactInfo>>();
 
         Ok(())
     }
