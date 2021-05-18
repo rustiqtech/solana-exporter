@@ -51,7 +51,7 @@ impl Default for PrometheusGauges {
             .unwrap(),
             root_slot: register_int_gauge_vec!(
                 "solana_validator_root_slot",
-                "Last voted slot of a validator",
+                "The root slot of a validator",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
