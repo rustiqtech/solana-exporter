@@ -12,102 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::gauges::PrometheusGauges;
 use clap::{App, Arg};
 use log::{debug, error};
-use once_cell::sync::Lazy;
-use prometheus_exporter::prometheus::{
-    register_gauge_vec, register_int_gauge, register_int_gauge_vec, Error as PrometheusError,
-    GaugeVec, IntGauge, IntGaugeVec,
-};
+use prometheus_exporter::prometheus::Error as PrometheusError;
 use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
 
-const PUBKEY_LABEL: &'static str = "pubkey";
-
-static ACTIVE_VALIDATORS: Lazy<IntGaugeVec> = Lazy::new(|| {
-    register_int_gauge_vec!(
-        "solana_active_validators",
-        "Total number of active validators",
-        &["state"]
-    )
-    .unwrap()
-});
-
-static IS_DELINQUENT: Lazy<GaugeVec> = Lazy::new(|| {
-    register_gauge_vec!(
-        "solana_validator_delinquent",
-        "Whether a validator is delinquent",
-        &[PUBKEY_LABEL]
-    )
-    .unwrap()
-});
-
-static ACTIVATED_STAKE: Lazy<IntGaugeVec> = Lazy::new(|| {
-    register_int_gauge_vec!(
-        "solana_validator_activated_stake",
-        "Activated stake of a validator",
-        &[PUBKEY_LABEL]
-    )
-    .unwrap()
-});
-
-static LAST_VOTE: Lazy<IntGaugeVec> = Lazy::new(|| {
-    register_int_gauge_vec!(
-        "solana_validator_last_vote",
-        "Last voted slot of a validator",
-        &[PUBKEY_LABEL]
-    )
-    .unwrap()
-});
-
-static ROOT_SLOT: Lazy<IntGaugeVec> = Lazy::new(|| {
-    register_int_gauge_vec!(
-        "solana_validator_last_vote",
-        "Last voted slot of a validator",
-        &[PUBKEY_LABEL]
-    )
-    .unwrap()
-});
-
-static TRANSACTION_COUNT: Lazy<IntGauge> = Lazy::new(|| {
-    register_int_gauge!(
-        "solana_transaction_count",
-        "Total number of confirmed transactions since genesis"
-    )
-    .unwrap()
-});
-
-static SLOT_HEIGHT: Lazy<IntGauge> =
-    Lazy::new(|| register_int_gauge!("solana_slot_height", "Last confirmed slot height").unwrap());
-
-static CURRENT_EPOCH: Lazy<IntGauge> =
-    Lazy::new(|| register_int_gauge!("solana_current_epoch", "Current epoch").unwrap());
-
-static CURRENT_EPOCH_FIRST_SLOT: Lazy<IntGauge> = Lazy::new(|| {
-    register_int_gauge!(
-        "solana_current_epoch_first_slot",
-        "Current epoch's first slot"
-    )
-    .unwrap()
-});
-
-static CURRENT_EPOCH_LAST_SLOT: Lazy<IntGauge> = Lazy::new(|| {
-    register_int_gauge!(
-        "solana_current_epoch_last_slot",
-        "Current epoch's last slot"
-    )
-    .unwrap()
-});
-
-static LEADER_SLOTS: Lazy<IntGaugeVec> = Lazy::new(|| {
-    register_int_gauge_vec!(
-        "solana_leader_slots",
-        "Leader slots per validator ordered by skip rate",
-        &[PUBKEY_LABEL]
-    )
-    .unwrap()
-});
+pub mod gauges;
 
 /// Application config.
 struct Config {
@@ -117,20 +30,29 @@ struct Config {
     target: SocketAddr,
 }
 
-fn export_vote_accounts(vote_accounts: &RpcVoteAccountStatus) -> Result<(), PrometheusError> {
-    ACTIVE_VALIDATORS
+fn export_vote_accounts(
+    gauges: &PrometheusGauges,
+    vote_accounts: &RpcVoteAccountStatus,
+) -> Result<(), PrometheusError> {
+    gauges
+        .active_validators
         .get_metric_with_label_values(&["current"])
         .map(|m| m.set(vote_accounts.current.len() as i64))?;
-    ACTIVE_VALIDATORS
+
+    gauges
+        .active_validators
         .get_metric_with_label_values(&["delinquent"])
         .map(|m| m.set(vote_accounts.delinquent.len() as i64))?;
+
     for v in &vote_accounts.current {
-        IS_DELINQUENT
+        gauges
+            .is_delinquent
             .get_metric_with_label_values(&[&*v.vote_pubkey])
             .map(|m| m.set(0.))?;
     }
     for v in &vote_accounts.delinquent {
-        IS_DELINQUENT
+        gauges
+            .is_delinquent
             .get_metric_with_label_values(&[&*v.vote_pubkey])
             .map(|m| m.set(1.))?;
     }
@@ -139,13 +61,16 @@ fn export_vote_accounts(vote_accounts: &RpcVoteAccountStatus) -> Result<(), Prom
         .iter()
         .chain(vote_accounts.delinquent.iter())
     {
-        ACTIVATED_STAKE
+        gauges
+            .activated_stake
             .get_metric_with_label_values(&[&*v.vote_pubkey])
             .map(|m| m.set(v.activated_stake as i64))?;
-        LAST_VOTE
+        gauges
+            .last_vote
             .get_metric_with_label_values(&[&*v.vote_pubkey])
             .map(|m| m.set(v.last_vote as i64))?;
-        ROOT_SLOT
+        gauges
+            .root_slot
             .get_metric_with_label_values(&[&*v.vote_pubkey])
             .map(|m| m.set(v.root_slot as i64))?;
     }
@@ -153,14 +78,20 @@ fn export_vote_accounts(vote_accounts: &RpcVoteAccountStatus) -> Result<(), Prom
     Ok(())
 }
 
-fn export_epoch_info(epoch_info: &EpochInfo) -> Result<(), PrometheusError> {
+fn export_epoch_info(
+    gauges: &PrometheusGauges,
+    epoch_info: &EpochInfo,
+) -> Result<(), PrometheusError> {
     let first_slot = epoch_info.absolute_slot as i64;
     let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
-    TRANSACTION_COUNT.set(epoch_info.transaction_count.unwrap_or_default() as i64);
-    SLOT_HEIGHT.set(epoch_info.absolute_slot as i64);
-    CURRENT_EPOCH.set(epoch_info.epoch as i64);
-    CURRENT_EPOCH_FIRST_SLOT.set(first_slot);
-    CURRENT_EPOCH_LAST_SLOT.set(last_slot);
+
+    gauges
+        .transaction_count
+        .set(epoch_info.transaction_count.unwrap_or_default() as i64);
+    gauges.slot_height.set(epoch_info.absolute_slot as i64);
+    gauges.current_epoch.set(epoch_info.epoch as i64);
+    gauges.current_epoch_first_slot.set(first_slot);
+    gauges.current_epoch_last_slot.set(last_slot);
 
     Ok(())
 }
@@ -220,13 +151,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc);
 
+    let gauges = PrometheusGauges::default();
+
     loop {
         let _guard = exporter.wait_duration(duration);
         debug!("Updating metrics");
         let vote_account_status = client.get_vote_accounts()?;
-        export_vote_accounts(&vote_account_status)
+        export_vote_accounts(&gauges, &vote_account_status)
             .log_err("Failed to export vote account metrics")?;
         let epoch_info = client.get_epoch_info()?;
-        export_epoch_info(&epoch_info).log_err("Failed to export epoch info metrics")?;
+        export_epoch_info(&gauges, &epoch_info).log_err("Failed to export epoch info metrics")?;
     }
 }
