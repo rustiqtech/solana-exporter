@@ -20,9 +20,9 @@ use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
 use std::{fmt::Debug, net::SocketAddr, time::Duration};
 
-
 pub mod gauges;
 pub mod geolocation;
+pub mod slots;
 
 const PUBKEY_LABEL: &str = "pubkey";
 
@@ -122,6 +122,7 @@ async fn main() -> anyhow::Result<()> {
     let geolocation_cache = GeoCache::new();
 
     let gauges = PrometheusGauges::new();
+    let skipped_slots_monitor = SkippedSlotsMonitor::new(&client);
 
     loop {
         let _guard = exporter.wait_duration(duration);
