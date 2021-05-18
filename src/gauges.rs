@@ -2,9 +2,9 @@ use prometheus_exporter::prometheus::Error as PrometheusError;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
 };
-use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountStatus};
+use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 pub const PUBKEY_LABEL: &str = "pubkey";
 
@@ -146,18 +146,19 @@ impl PrometheusGauges {
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
     ) -> Result<(), PrometheusError> {
-        let set = vote_accounts
+        // Mapping of pubkey -> vote account info
+        let mapping = vote_accounts
             .current
             .iter()
             .cloned()
-            .map(|n| n.node_pubkey)
-            .collect::<HashSet<String>>();
+            .map(|n| (n.node_pubkey.to_string(), n))
+            .collect::<HashMap<String, RpcVoteAccountInfo>>();
 
         let ip = nodes
             .iter()
             .cloned()
-            .filter(|n| set.contains(&n.pubkey))
-            .collect::<Vec<RpcContactInfo>>();
+            .filter_map(|n| mapping.get(&n.pubkey).map(|i| (n, i.clone())))
+            .collect::<Vec<(RpcContactInfo, RpcVoteAccountInfo)>>();
 
         Ok(())
     }
