@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container:
+      image: vkomenda/anchor-ci:0.5.0-no-nodejs
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prime GitHub Action homedir
+      run: cp -r /root/.rustup /github/home/
+    - name: Format check
+      run: cargo fmt -- --check
+    - name: Clippy
+      run: cargo clippy -- -D warnings
+
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: vkomenda/anchor-ci:0.5.0-no-nodejs
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prime GitHub Action homedir
+      run: cp -r /root/.rustup /github/home/
+    - name: Build
+      run: cargo build
+
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: vkomenda/anchor-ci:0.5.0-no-nodejs
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prime GitHub Action homedir
+      run: cp -r /root/.rustup /github/home/
+    - name: Build
+      run: cargo build
+    - name: Run tests
+      run: cargo test --verbose
