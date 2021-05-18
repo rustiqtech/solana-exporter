@@ -23,7 +23,7 @@ use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
 
-const PUBKEY_LABEL: &'static str = "pubkey";
+const PUBKEY_LABEL: &str = "pubkey";
 
 static ACTIVE_VALIDATORS: Lazy<IntGaugeVec> = Lazy::new(|| {
     register_int_gauge_vec!(

@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Install packages
+      run: sudo apt-get install -y build-essential pkg-config libudev-dev libssl-dev
     - name: Format check
       run: cargo fmt -- --check
     - name: Clippy
@@ -23,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Install packages
+      run: sudo apt-get install -y build-essential pkg-config libudev-dev libssl-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests
