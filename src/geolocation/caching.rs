@@ -1,7 +1,8 @@
+use crate::geolocation::api::IpApiResponse;
 use crate::geolocation::GEO_DB_CACHE_LOCATION;
 use serde::{Deserialize, Serialize};
-use sled::IVec;
 use std::net::IpAddr;
+use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
 pub struct GeoCache {
     db: sled::Db,
@@ -15,13 +16,24 @@ impl GeoCache {
     }
 
     /// Add an IP address and its corresponding information to the database
-    pub fn add_ip_address(&self, ip_address: IpAddr, info: GeoInfo) -> sled::Result<Option<IVec>> {
-        todo!()
+    pub fn add_ip_address(
+        &self,
+        ip_address: IpAddr,
+        info: GeoInfo,
+    ) -> sled::Result<Option<GeoInfo>> {
+        self.db
+            .insert(
+                bincode::serialize(&ip_address).unwrap(),
+                bincode::serialize(&info).unwrap(),
+            )
+            .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
     }
 
     /// Fetch the cached information about an IP address
-    pub fn fetch_ip_address(&self, ip_address: IpAddr) {
-        todo!()
+    pub fn fetch_ip_address(&self, ip_address: IpAddr) -> sled::Result<Option<GeoInfo>> {
+        self.db
+            .get(bincode::serialize(&ip_address).unwrap())
+            .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
     }
 }
 
@@ -31,7 +43,19 @@ impl Default for GeoCache {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeoInfo {
-    // TODO: What information do we need to cache? This will probably depend on which provider we go with.
+    response: IpApiResponse,
+    fetched_at: Date,
+}
+
+/// Converts a response from IP-API into something the database can store. We also store the date
+/// the response was fetched so we can invalidate it at a later time.
+impl From<IpApiResponse> for GeoInfo {
+    fn from(value: IpApiResponse) -> Self {
+        Self {
+            response: value,
+            fetched_at: OffsetDateTime::now_utc().date(),
+        }
+    }
 }
