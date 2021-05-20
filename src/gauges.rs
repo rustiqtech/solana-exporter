@@ -8,7 +8,7 @@ use prometheus_exporter::prometheus::{
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
-use time::{Duration, OffsetDateTime, PrimitiveDateTime};
+use time::{Duration, OffsetDateTime};
 
 pub const PUBKEY_LABEL: &str = "pubkey";
 
@@ -186,7 +186,7 @@ impl PrometheusGauges {
                     .map(|g| g.response);
                 (c, v, cached)
             })
-            .partition(|(c, v, db)| db.is_some());
+            .partition(|(_, _, db)| db.is_some());
 
         // Mapping of node -> geolocation, validator.
         let _validator_nodes_geolocation: HashMap<

@@ -37,7 +37,7 @@ impl GeoCache {
     }
 
     /// Fetch the cached information about an IP address, after checking if will be invalidated.
-    /// `f` is a function that will return `true` if cached data should be considered stale.
+    /// `f` is a function that will return `true` if, given a date, the cached data should be considered stale.
     pub fn fetch_ip_address_with_invalidation(
         &self,
         ip_address: &IpAddr,
@@ -57,7 +57,9 @@ impl GeoCache {
     }
 
     pub fn remove_ip_address(&self, ip_address: &IpAddr) -> sled::Result<Option<GeoInfo>> {
-        todo!()
+        self.db
+            .remove(bincode::serialize(ip_address).unwrap())
+            .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
     }
 }
 
