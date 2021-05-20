@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object returned by MaxMind's GeoIP2 City API.
 pub struct CityApiResponse {
     pub city: City,
@@ -16,18 +19,24 @@ pub struct CityApiResponse {
     pub traits: Traits,
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing details about the city associated with the IP address.
 pub struct City {
     /// A unique identifier for the city as specified by GeoNames.
     pub geoname_id: u32,
     /// A map from locale codes, such as `en`, to the localized names for the feature.
-    pub names: HashMap<String, String>
+    pub names: HashMap<String, String>,
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing information about the continent associated with the IP address.
 pub struct Continent {
     /// A two-character code for the continent associated with the IP address. The possible codes
@@ -41,18 +50,22 @@ pub struct Continent {
 }
 
 // I swear we need this. See below.
+#[allow(dead_code)]
 fn bool_false() -> bool {
     false
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing details about a country.
 pub struct Country {
     /// A unique identifier for the continent as specified by GeoNames.
     pub geoname_id: u32,
     /// This is `true` if the country is a member state of the European Union. Otherwise, the key is not included in the country object.
-    #[serde(default = "bool_false")]
+    #[cfg_attr(feature = "serde_support", serde(default = "bool_false"))]
     pub is_in_european_union: bool,
     /// A two-character ISO 3166-1 country code for the country associated with the IP address.
     pub iso_code: String,
@@ -60,8 +73,11 @@ pub struct Country {
     pub names: HashMap<String, String>,
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing specific details about the location associated with the IP address.
 pub struct Location {
     /// The approximate accuracy radius, in kilometers, around the latitude and longitude for the
@@ -77,16 +93,22 @@ pub struct Location {
     pub time_zone: String,
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing details about the postal code associated with the IP address.
 pub struct Postal {
     /// A postal code close to the user’s location.
     pub code: String,
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing information about location (e.g. county, country within union) associated with the IP address.
 pub struct Subdivisions {
     /// A unique identifier for the region as specified by GeoNames.
@@ -94,11 +116,14 @@ pub struct Subdivisions {
     /// A string of up to three characters containing the region-portion of the ISO 3166-2 code for the region associated with the IP address.
     pub iso_code: String,
     /// A map from locale codes, such as en, to the localized names for the feature.
-    pub names: HashMap<String, String>
+    pub names: HashMap<String, String>,
 }
 
-#[cfg(feature = "serde_support")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// A JSON object containing general traits associated with the IP address.
 pub struct Traits {
     /// The autonomous system number associated with the IP address.

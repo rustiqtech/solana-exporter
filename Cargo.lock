@@ -1075,6 +1075,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "geoip2-city"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "gethostname"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2824,6 +2831,7 @@ dependencies = [
  "bincode",
  "clap",
  "env_logger",
+ "geoip2-city",
  "log",
  "prometheus_exporter",
  "reqwest",

@@ -1,8 +1,8 @@
-use crate::geolocation::api::IpApiResponse;
 use crate::geolocation::GEO_DB_CACHE_LOCATION;
+use geoip2_city::CityApiResponse;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
-use time::{Date, OffsetDateTime, PrimitiveDateTime};
+use time::{Date, OffsetDateTime};
 
 pub struct GeoCache {
     db: sled::Db,
@@ -45,14 +45,14 @@ impl Default for GeoCache {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeoInfo {
-    response: IpApiResponse,
+    response: CityApiResponse,
     fetched_at: Date,
 }
 
 /// Converts a response from IP-API into something the database can store. We also store the date
 /// the response was fetched so we can invalidate it at a later time.
-impl From<IpApiResponse> for GeoInfo {
-    fn from(value: IpApiResponse) -> Self {
+impl From<CityApiResponse> for GeoInfo {
+    fn from(value: CityApiResponse) -> Self {
         Self {
             response: value,
             fetched_at: OffsetDateTime::now_utc().date(),
