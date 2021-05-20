@@ -18,22 +18,46 @@ impl GeoCache {
     /// Add an IP address and its corresponding information to the database
     pub fn add_ip_address(
         &self,
-        ip_address: IpAddr,
-        info: GeoInfo,
+        ip_address: &IpAddr,
+        info: &GeoInfo,
     ) -> sled::Result<Option<GeoInfo>> {
         self.db
             .insert(
-                bincode::serialize(&ip_address).unwrap(),
-                bincode::serialize(&info).unwrap(),
+                bincode::serialize(ip_address).unwrap(),
+                bincode::serialize(info).unwrap(),
             )
             .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
     }
 
     /// Fetch the cached information about an IP address
-    pub fn fetch_ip_address(&self, ip_address: IpAddr) -> sled::Result<Option<GeoInfo>> {
+    pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> sled::Result<Option<GeoInfo>> {
         self.db
-            .get(bincode::serialize(&ip_address).unwrap())
+            .get(bincode::serialize(ip_address).unwrap())
             .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
+    }
+
+    /// Fetch the cached information about an IP address, after checking if will be invalidated.
+    /// `f` is a function that will return `true` if cached data should be considered stale.
+    pub fn fetch_ip_address_with_invalidation(
+        &self,
+        ip_address: &IpAddr,
+        f: fn(Date) -> bool,
+    ) -> sled::Result<Option<GeoInfo>> {
+        match self.fetch_ip_address(ip_address)? {
+            Some(g) => {
+                if f(g.fetched_at) {
+                    self.remove_ip_address(ip_address)?;
+                    Ok(None)
+                } else {
+                    Ok(Some(g))
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub fn remove_ip_address(&self, ip_address: &IpAddr) -> sled::Result<Option<GeoInfo>> {
+        todo!()
     }
 }
 
@@ -45,8 +69,8 @@ impl Default for GeoCache {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeoInfo {
-    response: CityApiResponse,
-    fetched_at: Date,
+    pub response: CityApiResponse,
+    pub fetched_at: Date,
 }
 
 /// Converts a response from IP-API into something the database can store. We also store the date

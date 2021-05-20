@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use crate::gauges::PrometheusGauges;
+use crate::geolocation::api::MaxMindAPIKey;
+use crate::geolocation::caching::GeoCache;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
@@ -27,6 +29,8 @@ struct Config {
     rpc: String,
     /// Prometheus target socket address.
     target: SocketAddr,
+    /// Maxmind API
+    api: MaxMindAPIKey,
 }
 
 /// Gets config parameters from the command line.
@@ -53,13 +57,35 @@ fn cli() -> Result<Config, Box<dyn StdError>> {
                 .help("Prometheus target endpoint address")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("api_username")
+                .short("u")
+                .long("api_username")
+                .value_name("USERNAME")
+                .help("Maxmind GeoIP2 API username")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("api_password")
+                .short("p")
+                .long("api_password")
+                .value_name("PASSWORD")
+                .help("Maxmind GeoIP2 API password")
+                .takes_value(true),
+        )
         .get_matches();
 
     // Gets a value for config if supplied by user, or defaults to "default.conf"
     let target: SocketAddr = matches.value_of("target").unwrap().parse()?;
     let rpc: String = matches.value_of("rpc").unwrap().to_owned();
+    let api_username = matches.value_of("maxmind_username").unwrap();
+    let api_password = matches.value_of("maxmind_password").unwrap();
 
-    Ok(Config { rpc, target })
+    Ok(Config {
+        rpc,
+        target,
+        api: MaxMindAPIKey::new(api_username, api_password),
+    })
 }
 
 /// Error result logger.
@@ -83,6 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc);
+    let geolocation_cache = GeoCache::new();
 
     let gauges = PrometheusGauges::default();
 
@@ -102,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .export_epoch_info(&epoch_info)
             .log_err("Failed to export epoch info metrics")?;
         gauges
-            .export_ip_addresses(&nodes, &vote_accounts)
+            .export_ip_addresses(&nodes, &vote_accounts, &config.api, &geolocation_cache)
             .log_err("Failed to export IP address info metrics")?;
     }
 }

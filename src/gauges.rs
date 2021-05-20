@@ -1,3 +1,6 @@
+use crate::geolocation::api::MaxMindAPIKey;
+use crate::geolocation::caching::GeoCache;
+use geoip2_city::CityApiResponse;
 use prometheus_exporter::prometheus::Error as PrometheusError;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
@@ -5,6 +8,7 @@ use prometheus_exporter::prometheus::{
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
+use time::{Duration, OffsetDateTime, PrimitiveDateTime};
 
 pub const PUBKEY_LABEL: &str = "pubkey";
 
@@ -145,20 +149,54 @@ impl PrometheusGauges {
         &self,
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
+        api_key: &MaxMindAPIKey,
+        cache: &GeoCache,
     ) -> Result<(), PrometheusError> {
-        // Mapping of pubkey -> vote account info
-        let mapping = vote_accounts
+        // Define all types here
+        type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
+        type RpcInfoMaybeGeo = (RpcContactInfo, RpcVoteAccountInfo, Option<CityApiResponse>);
+        type RpcInfoGeo = (RpcContactInfo, RpcVoteAccountInfo, CityApiResponse);
+
+        // Mapping of pubkey -> vote account info. Convert into a mapping to avoid O(n) searches in filtering for validator nodes later.
+        let pubkeys = vote_accounts
             .current
             .iter()
             .cloned()
             .map(|n| (n.node_pubkey.to_string(), n))
             .collect::<HashMap<String, RpcVoteAccountInfo>>();
 
-        let ip = nodes
+        // All nodes that are validators
+        let validator_nodes = nodes
             .iter()
             .cloned()
-            .filter_map(|n| mapping.get(&n.pubkey).map(|i| (n, i.clone())))
-            .collect::<Vec<(RpcContactInfo, RpcVoteAccountInfo)>>();
+            .filter_map(|r| pubkeys.get(&r.pubkey).map(|s| (r, s.clone())))
+            .collect::<Vec<RpcInfo>>();
+
+        // Separate cached from uncached
+        let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
+            .into_iter()
+            .map(|(c, v)| {
+                let cached = cache
+                    // TODO: Handle TPU address not existing
+                    .fetch_ip_address_with_invalidation(&c.tpu.unwrap().ip(), |dt| {
+                        dt + Duration::week() > OffsetDateTime::now_utc().date()
+                    })
+                    // TODO: Handle database error
+                    .unwrap()
+                    .map(|g| g.response);
+                (c, v, cached)
+            })
+            .partition(|(c, v, db)| db.is_some());
+
+        // Mapping of node -> geolocation, validator.
+        let _validator_nodes_geolocation: HashMap<
+            RpcContactInfo,
+            (RpcVoteAccountInfo, CityApiResponse),
+        > = HashMap::new();
+
+        // TODO: Add cached into hashmap
+        // TODO: Add API requested data into database
+        // TODO: Add API requested data into hashmap
 
         Ok(())
     }
