@@ -208,22 +208,23 @@ impl PrometheusGauges {
         let client = reqwest::Client::new();
         let client = &client;
 
-        let mut uncached = futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
-            // TODO: Consider making this a function? For now this works...
-            client
-                .get(format!(
-                    "{}/{}",
-                    MAXMIND_CITY_URI,
-                    contact.tpu.unwrap().ip()
-                ))
-                .basic_auth(api_key.username(), Some(api_key.password()))
-                .send()
-                .and_then(|resp| resp.json::<CityApiResponse>())
-                .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })
-        }))
-        .await
-        .into_iter()
-        .collect::<reqwest::Result<Vec<RpcInfoGeo>>>()?;
+        let mut uncached =
+            futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
+                // TODO: Consider making this a function? For now this works...
+                client
+                    .get(format!(
+                        "{}/{}",
+                        MAXMIND_CITY_URI,
+                        contact.tpu.unwrap().ip()
+                    ))
+                    .basic_auth(api_key.username(), Some(api_key.password()))
+                    .send()
+                    .and_then(|resp| resp.json::<CityApiResponse>())
+                    .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })
+            }))
+            .await
+            .into_iter()
+            .collect::<reqwest::Result<Vec<RpcInfoGeo>>>()?;
 
         // Add API requested data into database
         for (contact, _, city) in &uncached {
