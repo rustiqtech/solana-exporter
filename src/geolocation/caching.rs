@@ -20,20 +20,21 @@ impl GeoCache {
         &self,
         ip_address: &IpAddr,
         info: &GeoInfo,
-    ) -> sled::Result<Option<GeoInfo>> {
-        self.db
-            .insert(
-                bincode::serialize(ip_address).unwrap(),
-                bincode::serialize(info).unwrap(),
-            )
-            .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
+    ) -> anyhow::Result<Option<GeoInfo>> {
+        Ok(self
+            .db
+            .insert(bincode::serialize(ip_address)?, bincode::serialize(info)?)?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()?)
     }
 
     /// Fetch the cached information about an IP address
-    pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> sled::Result<Option<GeoInfo>> {
-        self.db
-            .get(bincode::serialize(ip_address).unwrap())
-            .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
+    pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
+        Ok(self
+            .db
+            .get(bincode::serialize(ip_address)?)?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()?)
     }
 
     /// Fetch the cached information about an IP address, after checking if will be invalidated.
@@ -42,7 +43,7 @@ impl GeoCache {
         &self,
         ip_address: &IpAddr,
         f: fn(Date) -> bool,
-    ) -> sled::Result<Option<GeoInfo>> {
+    ) -> anyhow::Result<Option<GeoInfo>> {
         match self.fetch_ip_address(ip_address)? {
             // Database has it cached...
             Some(g) => {
@@ -61,10 +62,12 @@ impl GeoCache {
     }
 
     /// Remove cached information about an IP address.
-    pub fn remove_ip_address(&self, ip_address: &IpAddr) -> sled::Result<Option<GeoInfo>> {
-        self.db
-            .remove(bincode::serialize(ip_address).unwrap())
-            .map(|x| x.map(|y| bincode::deserialize(&y).unwrap()))
+    pub fn remove_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
+        Ok(self
+            .db
+            .remove(bincode::serialize(ip_address)?)?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()?)
     }
 }
 

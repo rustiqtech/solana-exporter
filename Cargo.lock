@@ -2828,6 +2828,7 @@ dependencies = [
 name = "solana-exporter"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "bincode",
  "clap",
  "env_logger",

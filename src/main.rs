@@ -18,7 +18,7 @@ use crate::geolocation::caching::GeoCache;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
-use std::{error::Error as StdError, fmt::Debug, net::SocketAddr, time::Duration};
+use std::{fmt::Debug, net::SocketAddr, time::Duration};
 
 pub mod gauges;
 pub mod geolocation;
@@ -34,7 +34,7 @@ struct Config {
 }
 
 /// Gets config parameters from the command line.
-fn cli() -> Result<Config, Box<dyn StdError>> {
+fn cli() -> anyhow::Result<Config> {
     let matches = App::new("Solana Prometheus Exporter")
         .version("0.1")
         .author("Vladimir Komendantskiy <komendantsky@gmail.com>")
@@ -78,8 +78,12 @@ fn cli() -> Result<Config, Box<dyn StdError>> {
     // Gets a value for config if supplied by user, or defaults to "default.conf"
     let target: SocketAddr = matches.value_of("target").unwrap().parse()?;
     let rpc: String = matches.value_of("rpc").unwrap().to_owned();
-    let api_username = matches.value_of("maxmind_username").unwrap();
-    let api_password = matches.value_of("maxmind_password").unwrap();
+    let api_username = matches
+        .value_of("maxmind_username")
+        .expect("no maxmind API username supplied");
+    let api_password = matches
+        .value_of("maxmind_password")
+        .expect("no maxmind API password supplied");
 
     Ok(Config {
         rpc,
@@ -103,7 +107,7 @@ impl<T, E: Debug> LogErr for Result<T, E> {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     let config = cli()?;
     let exporter = prometheus_exporter::start(config.target)?;

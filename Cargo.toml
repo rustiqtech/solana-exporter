@@ -21,3 +21,4 @@ serde = { version = "^1.0.126", features = ["derive"] }
 reqwest = "^0.11.3"
 time = { version = "^0.2.26", features = ["serde"] }
 geoip2-city = { path = "geoip2-city", features = ["serde_support"] }
+anyhow = "^1.0.40"

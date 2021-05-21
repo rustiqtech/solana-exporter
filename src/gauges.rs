@@ -1,7 +1,7 @@
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::GeoCache;
+use anyhow::Context;
 use geoip2_city::CityApiResponse;
-use prometheus_exporter::prometheus::Error as PrometheusError;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
 };
@@ -88,10 +88,7 @@ impl Default for PrometheusGauges {
 }
 
 impl PrometheusGauges {
-    pub fn export_vote_accounts(
-        &self,
-        vote_accounts: &RpcVoteAccountStatus,
-    ) -> Result<(), PrometheusError> {
+    pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
             .map(|m| m.set(vote_accounts.current.len() as i64))?;
@@ -129,7 +126,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
-    pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> Result<(), PrometheusError> {
+    pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let first_slot = epoch_info.absolute_slot as i64;
         let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
 
@@ -151,7 +148,7 @@ impl PrometheusGauges {
         vote_accounts: &RpcVoteAccountStatus,
         api_key: &MaxMindAPIKey,
         cache: &GeoCache,
-    ) -> Result<(), PrometheusError> {
+    ) -> anyhow::Result<()> {
         // Define all types here
         type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
         type RpcInfoMaybeGeo = (RpcContactInfo, RpcVoteAccountInfo, Option<CityApiResponse>);
@@ -180,30 +177,24 @@ impl PrometheusGauges {
             .into_iter()
             .map(|(c, v)| {
                 let cached = cache
-                    // TODO: Handle TPU address not existing
-                    .fetch_ip_address_with_invalidation(&c.tpu.unwrap().ip(), |dt| {
-                        dt + Duration::week() > OffsetDateTime::now_utc().date()
-                    })
-                    // TODO: Handle database error
-                    .unwrap()
+                    .fetch_ip_address_with_invalidation(
+                        &c.tpu
+                            .with_context(|| format!("Validator node has no TPU: {:?} {:?}", c, v))?
+                            .ip(),
+                        |dt| dt + Duration::week() > OffsetDateTime::now_utc().date(),
+                    )?
                     .map(|g| g.response);
-                (c, v, cached)
+                Ok((c, v, cached))
             })
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
             .partition(|(_, _, db)| db.is_some());
 
         let cached = cached
             .into_iter()
+            // This unwrap is safe because we have already partitioned into Some and Nones.
             .map(|(c, v, db)| (c, v, db.unwrap()))
             .collect::<Vec<RpcInfoGeo>>();
-
-        // Mapping of node -> geolocation, validator. Add the cached values into the hashmap.
-        // let mut validator_nodes_geolocation: HashMap<
-        //     String,
-        //     (RpcVoteAccountInfo, CityApiResponse),
-        // > = cached
-        //     .into_iter()
-        //     .map(|(c, v, a)| (c, (v, a.unwrap())))
-        //     .collect();
 
         // TODO: Add API requested data into database
         // TODO: Add API requested data into hashmap
