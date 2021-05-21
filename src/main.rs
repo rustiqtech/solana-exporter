@@ -107,7 +107,8 @@ impl<T, E: Debug> LogErr for Result<T, E> {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let config = cli()?;
     let exporter = prometheus_exporter::start(config.target)?;
@@ -134,6 +135,7 @@ fn main() -> anyhow::Result<()> {
             .log_err("Failed to export epoch info metrics")?;
         gauges
             .export_ip_addresses(&nodes, &vote_accounts, &config.api, &geolocation_cache)
+            .await
             .log_err("Failed to export IP address info metrics")?;
     }
 }

@@ -2832,6 +2832,7 @@ dependencies = [
  "bincode",
  "clap",
  "env_logger",
+ "futures 0.3.15",
  "geoip2-city",
  "log",
  "prometheus_exporter",
@@ -2841,6 +2842,7 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "time 0.2.26",
+ "tokio 1.6.0",
 ]
 
 [[package]]

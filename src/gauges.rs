@@ -1,6 +1,7 @@
-use crate::geolocation::api::MaxMindAPIKey;
+use crate::geolocation::api::{MaxMindAPIKey, MAXMIND_CITY_URI};
 use crate::geolocation::caching::GeoCache;
 use anyhow::Context;
+use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
@@ -8,6 +9,7 @@ use prometheus_exporter::prometheus::{
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
+use std::net::IpAddr;
 use time::{Duration, OffsetDateTime};
 
 pub const PUBKEY_LABEL: &str = "pubkey";
@@ -142,7 +144,7 @@ impl PrometheusGauges {
 
     // For now, this will export the IP addresses of active voting accounts with a node.
     // TODO: This needs to actually export to a Prometheus gauge.
-    pub fn export_ip_addresses(
+    pub async fn export_ip_addresses(
         &self,
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
@@ -162,29 +164,36 @@ impl PrometheusGauges {
                 .current
                 .iter()
                 .cloned()
-                .map(|n| (n.node_pubkey.to_string(), n))
+                .map(|vote| (vote.node_pubkey.to_string(), vote))
                 .collect::<HashMap<String, RpcVoteAccountInfo>>();
 
             nodes
                 .iter()
                 .cloned()
-                .filter_map(|r| pubkeys.get(&r.pubkey).map(|s| (r, s.clone())))
+                .filter_map(|contact| {
+                    pubkeys
+                        .get(&contact.pubkey)
+                        .map(|vote| (contact, vote.clone()))
+                })
                 .collect::<Vec<RpcInfo>>()
         };
 
         // Separate cached from uncached
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
             .into_iter()
-            .map(|(c, v)| {
+            .map(|(contact, vote)| {
                 let cached = cache
                     .fetch_ip_address_with_invalidation(
-                        &c.tpu
-                            .with_context(|| format!("Validator node has no TPU: {:?} {:?}", c, v))?
+                        &contact
+                            .tpu
+                            .with_context(|| {
+                                format!("Validator node has no TPU: {:?} {:?}", contact, vote)
+                            })?
                             .ip(),
-                        |dt| dt + Duration::week() > OffsetDateTime::now_utc().date(),
+                        |date| date + Duration::week() > OffsetDateTime::now_utc().date(),
                     )?
-                    .map(|g| g.response);
-                Ok((c, v, cached))
+                    .map(|geo| geo.response);
+                Ok((contact, vote, cached))
             })
             .collect::<anyhow::Result<Vec<_>>>()?
             .into_iter()
@@ -196,7 +205,29 @@ impl PrometheusGauges {
             .map(|(c, v, db)| (c, v, db.unwrap()))
             .collect::<Vec<RpcInfoGeo>>();
 
+        // // For uncached, request them from maxmind.
+        let client = reqwest::Client::new();
+        let client = &client;
+
+        let h = futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
+            // TODO: Consider making this a function? For now this works...
+            client
+                .get(format!(
+                    "{}/{}",
+                    MAXMIND_CITY_URI,
+                    contact.tpu.unwrap().ip()
+                ))
+                .basic_auth(api_key.username(), Some(api_key.password()))
+                .send()
+                .and_then(|resp| resp.json::<CityApiResponse>())
+                .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })
+        }))
+        .await
+        .into_iter()
+        .collect::<reqwest::Result<Vec<RpcInfoGeo>>>()?;
+
         // TODO: Add API requested data into database
+
         // TODO: Add API requested data into hashmap
 
         Ok(())
