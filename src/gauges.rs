@@ -9,7 +9,6 @@ use prometheus_exporter::prometheus::{
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
-use std::net::IpAddr;
 use time::{Duration, OffsetDateTime};
 
 pub const PUBKEY_LABEL: &str = "pubkey";
@@ -195,21 +194,21 @@ impl PrometheusGauges {
                     .map(|geo| geo.response);
                 Ok((contact, vote, cached))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?
+            .collect::<anyhow::Result<Vec<RpcInfoMaybeGeo>>>()?
             .into_iter()
             .partition(|(_, _, db)| db.is_some());
 
-        let cached = cached
+        let mut geolocations = cached
             .into_iter()
             // This unwrap is safe because we have already partitioned into Some and Nones.
             .map(|(c, v, db)| (c, v, db.unwrap()))
             .collect::<Vec<RpcInfoGeo>>();
 
-        // // For uncached, request them from maxmind.
+        // For uncached, request them from maxmind.
         let client = reqwest::Client::new();
         let client = &client;
 
-        let h = futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
+        let mut uncached = futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
             // TODO: Consider making this a function? For now this works...
             client
                 .get(format!(
@@ -226,9 +225,13 @@ impl PrometheusGauges {
         .into_iter()
         .collect::<reqwest::Result<Vec<RpcInfoGeo>>>()?;
 
-        // TODO: Add API requested data into database
+        // Add API requested data into database
+        for (contact, _, city) in &uncached {
+            cache.add_ip_address(&contact.tpu.unwrap().ip(), &city.clone().into())?;
+        }
 
-        // TODO: Add API requested data into hashmap
+        // Add API requested data into collection
+        geolocations.append(&mut uncached);
 
         Ok(())
     }
