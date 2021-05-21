@@ -44,18 +44,23 @@ impl GeoCache {
         f: fn(Date) -> bool,
     ) -> sled::Result<Option<GeoInfo>> {
         match self.fetch_ip_address(ip_address)? {
+            // Database has it cached...
             Some(g) => {
                 if f(g.fetched_at) {
+                    // ... but it is considered stale. Remove it.
                     self.remove_ip_address(ip_address)?;
                     Ok(None)
                 } else {
+                    // ... and it's fine to use!
                     Ok(Some(g))
                 }
             }
+            // Database doesn't have it.
             None => Ok(None),
         }
     }
 
+    /// Remove cached information about an IP address.
     pub fn remove_ip_address(&self, ip_address: &IpAddr) -> sled::Result<Option<GeoInfo>> {
         self.db
             .remove(bincode::serialize(ip_address).unwrap())

@@ -157,20 +157,23 @@ impl PrometheusGauges {
         type RpcInfoMaybeGeo = (RpcContactInfo, RpcVoteAccountInfo, Option<CityApiResponse>);
         type RpcInfoGeo = (RpcContactInfo, RpcVoteAccountInfo, CityApiResponse);
 
-        // Mapping of pubkey -> vote account info. Convert into a mapping to avoid O(n) searches in filtering for validator nodes later.
-        let pubkeys = vote_accounts
-            .current
-            .iter()
-            .cloned()
-            .map(|n| (n.node_pubkey.to_string(), n))
-            .collect::<HashMap<String, RpcVoteAccountInfo>>();
-
         // All nodes that are validators
-        let validator_nodes = nodes
-            .iter()
-            .cloned()
-            .filter_map(|r| pubkeys.get(&r.pubkey).map(|s| (r, s.clone())))
-            .collect::<Vec<RpcInfo>>();
+        let validator_nodes = {
+            // Mapping of pubkey -> vote account info.
+            // Convert into a mapping to avoid O(n) searches
+            let pubkeys = vote_accounts
+                .current
+                .iter()
+                .cloned()
+                .map(|n| (n.node_pubkey.to_string(), n))
+                .collect::<HashMap<String, RpcVoteAccountInfo>>();
+
+            nodes
+                .iter()
+                .cloned()
+                .filter_map(|r| pubkeys.get(&r.pubkey).map(|s| (r, s.clone())))
+                .collect::<Vec<RpcInfo>>()
+        };
 
         // Separate cached from uncached
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
@@ -188,13 +191,20 @@ impl PrometheusGauges {
             })
             .partition(|(_, _, db)| db.is_some());
 
-        // Mapping of node -> geolocation, validator.
-        let _validator_nodes_geolocation: HashMap<
-            RpcContactInfo,
-            (RpcVoteAccountInfo, CityApiResponse),
-        > = HashMap::new();
+        let cached = cached
+            .into_iter()
+            .map(|(c, v, db)| (c, v, db.unwrap()))
+            .collect::<Vec<RpcInfoGeo>>();
 
-        // TODO: Add cached into hashmap
+        // Mapping of node -> geolocation, validator. Add the cached values into the hashmap.
+        // let mut validator_nodes_geolocation: HashMap<
+        //     String,
+        //     (RpcVoteAccountInfo, CityApiResponse),
+        // > = cached
+        //     .into_iter()
+        //     .map(|(c, v, a)| (c, (v, a.unwrap())))
+        //     .collect();
+
         // TODO: Add API requested data into database
         // TODO: Add API requested data into hashmap
 
