@@ -79,10 +79,10 @@ fn cli() -> anyhow::Result<Config> {
     let target: SocketAddr = matches.value_of("target").unwrap().parse()?;
     let rpc: String = matches.value_of("rpc").unwrap().to_owned();
     let api_username = matches
-        .value_of("maxmind_username")
+        .value_of("api_username")
         .expect("no maxmind API username supplied");
     let api_password = matches
-        .value_of("maxmind_password")
+        .value_of("api_password")
         .expect("no maxmind API password supplied");
 
     Ok(Config {

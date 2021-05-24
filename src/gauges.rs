@@ -1,8 +1,10 @@
 use crate::geolocation::api::{MaxMindAPIKey, MAXMIND_CITY_URI};
 use crate::geolocation::caching::GeoCache;
+use crate::geolocation::get_rpc_contact_ip;
 use anyhow::Context;
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
+use log::debug;
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
 };
@@ -183,13 +185,10 @@ impl PrometheusGauges {
             .map(|(contact, vote)| {
                 let cached = cache
                     .fetch_ip_address_with_invalidation(
-                        &contact
-                            .tpu
-                            .with_context(|| {
-                                format!("Validator node has no TPU: {:?} {:?}", contact, vote)
-                            })?
-                            .ip(),
-                        |date| date + Duration::week() > OffsetDateTime::now_utc().date(),
+                        &get_rpc_contact_ip(&contact).with_context(|| {
+                            format!("Validator node has no IP: {:?} {:?}", contact, vote)
+                        })?,
+                        |date| date + Duration::week() < OffsetDateTime::now_utc().date(),
                     )?
                     .map(|geo| geo.response);
                 Ok((contact, vote, cached))
@@ -208,14 +207,25 @@ impl PrometheusGauges {
         let client = reqwest::Client::new();
         let client = &client;
 
+        println!(
+            "Asking MM for {:?} addresses, already have {:?}.",
+            &uncached.len(),
+            &geolocations.len()
+        );
+
         let mut uncached =
             futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
                 // TODO: Consider making this a function? For now this works...
+                debug!(
+                    "Contacting Maxmind for: {:?}",
+                    get_rpc_contact_ip(&contact).unwrap()
+                );
+
                 client
                     .get(format!(
                         "{}/{}",
                         MAXMIND_CITY_URI,
-                        contact.tpu.unwrap().ip()
+                        get_rpc_contact_ip(&contact).unwrap()
                     ))
                     .basic_auth(api_key.username(), Some(api_key.password()))
                     .send()
@@ -228,7 +238,8 @@ impl PrometheusGauges {
 
         // Add API requested data into database
         for (contact, _, city) in &uncached {
-            cache.add_ip_address(&contact.tpu.unwrap().ip(), &city.clone().into())?;
+            cache.add_ip_address(&get_rpc_contact_ip(contact).unwrap(), &city.clone().into())?;
+            debug!("Caching into DB {:?}", get_rpc_contact_ip(contact).unwrap());
         }
 
         // Add API requested data into collection
