@@ -208,7 +208,7 @@ impl PrometheusGauges {
         let client = &client;
 
         println!(
-            "Asking MM for {:?} addresses, already have {:?}.",
+            "Uncached addresses: {:?}, cached addresses: {:?}.",
             &uncached.len(),
             &geolocations.len()
         );
