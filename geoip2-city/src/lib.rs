@@ -50,7 +50,7 @@ pub struct Continent {
 }
 
 // I swear we need this. See below.
-#[allow(dead_code)]
+#[cfg(feature = "serde_support")]
 fn bool_false() -> bool {
     false
 }
