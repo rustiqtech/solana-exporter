@@ -1,8 +1,11 @@
-use crate::geolocation::GEO_DB_CACHE_LOCATION;
+use crate::EXPORTER_DATA_DIR;
 use geoip2_city::CityApiResponse;
 use serde::{Deserialize, Serialize};
+use std::fs::create_dir_all;
 use std::net::IpAddr;
 use time::{Date, OffsetDateTime};
+
+pub const GEO_DB_CACHE_NAME: &str = "geolocation_cache.db";
 
 pub struct GeoCache {
     db: sled::Db,
@@ -10,8 +13,10 @@ pub struct GeoCache {
 
 impl GeoCache {
     pub fn new() -> Self {
+        let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
+        create_dir_all(&exporter_dir).unwrap();
         Self {
-            db: sled::open(GEO_DB_CACHE_LOCATION).unwrap(),
+            db: sled::open(exporter_dir.join(GEO_DB_CACHE_NAME)).unwrap(),
         }
     }
 

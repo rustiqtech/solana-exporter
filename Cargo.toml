@@ -24,3 +24,4 @@ geoip2-city = { path = "geoip2-city", features = ["serde_support"] }
 anyhow = "^1.0.40"
 tokio = "^1.6.0"
 futures = "^0.3.15"
+dirs = "^3.0.2"
