@@ -27,10 +27,12 @@ pub struct PrometheusGauges {
     pub current_epoch_first_slot: IntGauge,
     pub current_epoch_last_slot: IntGauge,
     pub leader_slots: IntGaugeVec,
+    // Connection pool for querying
+    client: reqwest::Client,
 }
 
-impl Default for PrometheusGauges {
-    fn default() -> Self {
+impl PrometheusGauges {
+    pub fn new() -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
                 "solana_active_validators",
@@ -86,11 +88,10 @@ impl Default for PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
+            client: reqwest::Client::new(),
         }
     }
-}
 
-impl PrometheusGauges {
     pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
@@ -204,9 +205,6 @@ impl PrometheusGauges {
             .collect::<Vec<RpcInfoGeo>>();
 
         // For uncached, request them from maxmind.
-        let client = reqwest::Client::new();
-        let client = &client;
-
         println!(
             "Uncached addresses: {:?}, cached addresses: {:?}.",
             &uncached.len(),
@@ -221,7 +219,7 @@ impl PrometheusGauges {
                     get_rpc_contact_ip(&contact).unwrap()
                 );
 
-                client
+                self.client
                     .get(format!(
                         "{}/{}",
                         MAXMIND_CITY_URI,
@@ -246,5 +244,11 @@ impl PrometheusGauges {
         geolocations.append(&mut uncached);
 
         Ok(())
+    }
+}
+
+impl Default for PrometheusGauges {
+    fn default() -> Self {
+        Self::new()
     }
 }

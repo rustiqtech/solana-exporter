@@ -116,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new(config.rpc);
     let geolocation_cache = GeoCache::new();
 
-    let gauges = PrometheusGauges::default();
+    let gauges = PrometheusGauges::new();
 
     loop {
         let _guard = exporter.wait_duration(duration);
