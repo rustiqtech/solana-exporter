@@ -1,2 +1,3 @@
 target/
 *~
+geolocation_cache.db
