@@ -1,3 +1,4 @@
+use log::debug;
 use prometheus_exporter::prometheus::IntCounterVec;
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
 use solana_sdk::epoch_info::EpochInfo;
@@ -31,24 +32,31 @@ impl<'a> SkippedSlotsMonitor<'a> {
             self.slot_leaders = self.get_slot_leaders()?;
             self.epoch_number = epoch_info.epoch;
             self.slot_index = epoch_info.slot_index;
+            debug!("SkippedSlotsMonitor state updated");
         } else if self.slot_index == epoch_info.slot_index {
+            debug!("At the slot index");
             return Ok(());
         }
 
         let range_start = first_slot + self.slot_index;
         let range_end = first_slot + epoch_info.slot_index;
 
-        let confirmed_slots = self
+        let confirmed_blocks = self
             .client
             .get_confirmed_blocks(range_start, Some(range_end))?;
+        debug!(
+            "Confirmed blocks from {} to {}: {:?}",
+            range_start, range_end, confirmed_blocks
+        );
         for block in self.slot_index..epoch_info.slot_index {
             let leader = &self.slot_leaders[&(block as usize)];
-            let slot_number = first_slot + block;
-            let status = if confirmed_slots.contains(&slot_number) {
-                "present"
+            let absolute_block = first_slot + block;
+            let status = if confirmed_blocks.contains(&absolute_block) {
+                "validated"
             } else {
                 "skipped"
             };
+            debug!("Leader {} {} block {}", leader, status, absolute_block);
             prometheus_leader_slots
                 .local()
                 .with_label_values(&[status, leader])
@@ -56,6 +64,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
         }
 
         self.slot_index = epoch_info.slot_index;
+        debug!("Exported leader slots and updated the slot index");
         Ok(())
     }
 
