@@ -27,6 +27,8 @@ pub struct PrometheusGauges {
     pub current_epoch_first_slot: IntGauge,
     pub current_epoch_last_slot: IntGauge,
     pub leader_slots: IntGaugeVec,
+    pub geolocation_count: IntGaugeVec,
+    pub geolocation_by_stake: IntGaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -85,6 +87,18 @@ impl PrometheusGauges {
             leader_slots: register_int_gauge_vec!(
                 "solana_leader_slots",
                 "Leader slots per validator ordered by skip rate",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            geolocation_count: register_int_gauge_vec!(
+                "solana_active_validators_geolocation_count",
+                "Count of geographic location of active validators",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            geolocation_by_stake: register_int_gauge_vec!(
+                "solana_active_validators_geolocation_stake",
+                "Geographic location of active validators grouped by stake",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
@@ -242,6 +256,33 @@ impl PrometheusGauges {
 
         // Add API requested data into collection
         geolocations.append(&mut uncached);
+
+        // Gauges
+        let mut summation: HashMap<String, u64> = HashMap::new();
+        let mut count: HashMap<String, u64> = HashMap::new();
+
+        for (_, validator, city) in &geolocations {
+            let isp = &city.traits.isp;
+
+            let s = summation.entry(isp.clone()).or_default();
+            *s += validator.activated_stake;
+
+            let c = count.entry(isp.clone()).or_default();
+            *c += 1;
+        }
+
+        // Set gauges
+        for (isp, count) in &count {
+            self.geolocation_count
+                .get_metric_with_label_values(&[isp])
+                .map(|c| c.set(*count as i64))?;
+        }
+
+        for (isp, summation) in &summation {
+            self.geolocation_by_stake
+                .get_metric_with_label_values(&[isp])
+                .map(|c| c.set(*summation as i64))?;
+        }
 
         Ok(())
     }
