@@ -67,7 +67,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
                 "skipped"
             };
             debug!("Leader {} {} slot {}", leader, status, absolute_slot);
-            feed.with_label_values(&[status, leader]).inc_by(1)
+            feed.with_label_values(&[leader, status]).inc_by(1)
         }
         feed.flush();
 

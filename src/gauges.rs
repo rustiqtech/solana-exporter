@@ -89,7 +89,7 @@ impl PrometheusGauges {
             leader_slots: register_int_counter_vec!(
                 "solana_leader_slots",
                 "Validated and skipped leader slots per validator",
-                &[STATUS_LABEL, PUBKEY_LABEL]
+                &[PUBKEY_LABEL, STATUS_LABEL]
             )
             .unwrap(),
             isp_count: register_int_gauge_vec!(
