@@ -6,13 +6,15 @@ use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
 use log::debug;
 use prometheus_exporter::prometheus::{
-    register_gauge_vec, register_int_gauge, register_int_gauge_vec, GaugeVec, IntGauge, IntGaugeVec,
+    register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
+    GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
 };
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
 
+pub const STATUS_LABEL: &str = "status";
 pub const PUBKEY_LABEL: &str = "pubkey";
 
 pub struct PrometheusGauges {
@@ -26,7 +28,7 @@ pub struct PrometheusGauges {
     pub current_epoch: IntGauge,
     pub current_epoch_first_slot: IntGauge,
     pub current_epoch_last_slot: IntGauge,
-    pub leader_slots: IntGaugeVec,
+    pub leader_slots: IntCounterVec,
     pub isp_count: IntGaugeVec,
     pub isp_by_stake: IntGaugeVec,
     // Connection pool for querying
@@ -39,7 +41,7 @@ impl PrometheusGauges {
             active_validators: register_int_gauge_vec!(
                 "solana_active_validators",
                 "Total number of active validators",
-                &["state"]
+                &[STATUS_LABEL]
             )
             .unwrap(),
             is_delinquent: register_gauge_vec!(
@@ -84,10 +86,10 @@ impl PrometheusGauges {
                 "Current epoch's last slot"
             )
             .unwrap(),
-            leader_slots: register_int_gauge_vec!(
+            leader_slots: register_int_counter_vec!(
                 "solana_leader_slots",
                 "Leader slots per validator ordered by skip rate",
-                &[PUBKEY_LABEL]
+                &[STATUS_LABEL, PUBKEY_LABEL]
             )
             .unwrap(),
             isp_count: register_int_gauge_vec!(

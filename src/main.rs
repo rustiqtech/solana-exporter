@@ -15,6 +15,7 @@
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::GeoCache;
+use crate::slots::SkippedSlotsMonitor;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
@@ -23,8 +24,6 @@ use std::{fmt::Debug, net::SocketAddr, time::Duration};
 pub mod gauges;
 pub mod geolocation;
 pub mod slots;
-
-const PUBKEY_LABEL: &str = "pubkey";
 
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
@@ -122,7 +121,7 @@ async fn main() -> anyhow::Result<()> {
     let geolocation_cache = GeoCache::new();
 
     let gauges = PrometheusGauges::new();
-    let skipped_slots_monitor = SkippedSlotsMonitor::new(&client);
+    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(&client);
 
     loop {
         let _guard = exporter.wait_duration(duration);
@@ -143,5 +142,8 @@ async fn main() -> anyhow::Result<()> {
             .export_ip_addresses(&nodes, &vote_accounts, &config.api, &geolocation_cache)
             .await
             .log_err("Failed to export IP address info metrics")?;
+        skipped_slots_monitor
+            .export_skipped_slots(&epoch_info, &gauges.leader_slots)
+            .log_err("Failed to export skipped slots")?;
     }
 }

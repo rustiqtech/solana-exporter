@@ -75,8 +75,8 @@ pub struct Country {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(
-feature = "serde_support",
-derive(serde::Serialize, serde::Deserialize)
+    feature = "serde_support",
+    derive(serde::Serialize, serde::Deserialize)
 )]
 /// A JSON object containing details about a country.
 pub struct RepresentedCountry {
