@@ -27,8 +27,8 @@ pub struct PrometheusGauges {
     pub current_epoch_first_slot: IntGauge,
     pub current_epoch_last_slot: IntGauge,
     pub leader_slots: IntGaugeVec,
-    pub geolocation_count: IntGaugeVec,
-    pub geolocation_by_stake: IntGaugeVec,
+    pub isp_count: IntGaugeVec,
+    pub isp_by_stake: IntGaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -90,15 +90,15 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
-            geolocation_count: register_int_gauge_vec!(
+            isp_count: register_int_gauge_vec!(
                 "solana_active_validators_geolocation_count",
-                "Count of geographic location of active validators",
+                "ISP of active validators",
                 &["isp_name"]
             )
             .unwrap(),
-            geolocation_by_stake: register_int_gauge_vec!(
+            isp_by_stake: register_int_gauge_vec!(
                 "solana_active_validators_geolocation_stake",
-                "Geographic location of active validators grouped by stake",
+                "ISP of active validators grouped by stake",
                 &["isp_name"]
             )
             .unwrap(),
@@ -273,13 +273,13 @@ impl PrometheusGauges {
 
         // Set gauges
         for (isp, count) in &count {
-            self.geolocation_count
+            self.isp_count
                 .get_metric_with_label_values(&[isp])
                 .map(|c| c.set(*count as i64))?;
         }
 
         for (isp, summation) in &summation {
-            self.geolocation_by_stake
+            self.isp_by_stake
                 .get_metric_with_label_values(&[isp])
                 .map(|c| c.set(*summation as i64))?;
         }
