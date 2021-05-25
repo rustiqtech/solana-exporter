@@ -48,6 +48,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
             "Confirmed blocks from {} to {}: {:?}",
             range_start, range_end, confirmed_blocks
         );
+        let mut feed = prometheus_leader_slots.local();
         for block in self.slot_index..epoch_info.slot_index {
             let leader = &self.slot_leaders[&(block as usize)];
             let absolute_block = first_slot + block;
@@ -57,12 +58,9 @@ impl<'a> SkippedSlotsMonitor<'a> {
                 "skipped"
             };
             debug!("Leader {} {} block {}", leader, status, absolute_block);
-            prometheus_leader_slots
-                .local()
-                .with_label_values(&[status, leader])
-                .inc_by(1)
+            feed.with_label_values(&[status, leader]).inc_by(1)
         }
-        prometheus_leader_slots.local().flush();
+        feed.flush();
 
         self.slot_index = epoch_info.slot_index;
         debug!("Exported leader slots and updated the slot index");
