@@ -62,6 +62,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
                 .with_label_values(&[status, leader])
                 .inc_by(1)
         }
+        prometheus_leader_slots.local().flush();
 
         self.slot_index = epoch_info.slot_index;
         debug!("Exported leader slots and updated the slot index");
