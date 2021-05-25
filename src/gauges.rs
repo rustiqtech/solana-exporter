@@ -91,13 +91,13 @@ impl PrometheusGauges {
             )
             .unwrap(),
             isp_count: register_int_gauge_vec!(
-                "solana_active_validators_geolocation_count",
+                "solana_active_validators_isp_count",
                 "ISP of active validators",
                 &["isp_name"]
             )
             .unwrap(),
             isp_by_stake: register_int_gauge_vec!(
-                "solana_active_validators_geolocation_stake",
+                "solana_active_validators_isp_stake",
                 "ISP of active validators grouped by stake",
                 &["isp_name"]
             )
@@ -258,27 +258,31 @@ impl PrometheusGauges {
         geolocations.append(&mut uncached);
 
         // Gauges
-        let mut summation: HashMap<String, u64> = HashMap::new();
-        let mut count: HashMap<String, u64> = HashMap::new();
+        let mut isp_staked: HashMap<String, u64> = HashMap::new();
+        let mut isp_count: HashMap<String, u64> = HashMap::new();
 
         for (_, validator, city) in &geolocations {
             let isp = &city.traits.isp;
 
-            let s = summation.entry(isp.clone()).or_default();
+            // solana_active_validators_isp_stake
+            let s = isp_staked.entry(isp.clone()).or_default();
             *s += validator.activated_stake;
 
-            let c = count.entry(isp.clone()).or_default();
+            // solana_active_validators_isp_count
+            let c = isp_count.entry(isp.clone()).or_default();
             *c += 1;
+
+            // TODO: solana_active_validators_data_centre_stake
         }
 
         // Set gauges
-        for (isp, count) in &count {
+        for (isp, count) in &isp_count {
             self.isp_count
                 .get_metric_with_label_values(&[isp])
                 .map(|c| c.set(*count as i64))?;
         }
 
-        for (isp, summation) in &summation {
+        for (isp, summation) in &isp_staked {
             self.isp_by_stake
                 .get_metric_with_label_values(&[isp])
                 .map(|c| c.set(*summation as i64))?;
