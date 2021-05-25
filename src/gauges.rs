@@ -93,13 +93,13 @@ impl PrometheusGauges {
             geolocation_count: register_int_gauge_vec!(
                 "solana_active_validators_geolocation_count",
                 "Count of geographic location of active validators",
-                &[PUBKEY_LABEL]
+                &["isp_name"]
             )
             .unwrap(),
             geolocation_by_stake: register_int_gauge_vec!(
                 "solana_active_validators_geolocation_stake",
                 "Geographic location of active validators grouped by stake",
-                &[PUBKEY_LABEL]
+                &["isp_name"]
             )
             .unwrap(),
             client: reqwest::Client::new(),
