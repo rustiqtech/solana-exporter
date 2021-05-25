@@ -20,11 +20,10 @@ use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
 use std::{fmt::Debug, net::SocketAddr, time::Duration};
 
-
 pub mod gauges;
 pub mod geolocation;
 
-const PUBKEY_LABEL: &str = "pubkey";
+pub const PUBKEY_LABEL: &str = "pubkey";
 
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
