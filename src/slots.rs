@@ -1,17 +1,25 @@
+//! Statistics of skipped and validated slots.
+
 use log::debug;
 use prometheus_exporter::prometheus::IntCounterVec;
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::BTreeMap;
 
+/// The monitor of skipped and validated slots per validator with minimal internal state.
 pub struct SkippedSlotsMonitor<'a> {
+    /// Shared Solana RPC client.
     client: &'a RpcClient,
+    /// The last observed epoch number.
     epoch_number: u64,
+    /// The last observed slot index.
     slot_index: u64,
+    /// The slot leader schedule for the last observed epoch.
     slot_leaders: BTreeMap<usize, String>,
 }
 
 impl<'a> SkippedSlotsMonitor<'a> {
+    /// Constructs a monitor given `client`.
     pub fn new(client: &'a RpcClient) -> Self {
         Self {
             client,
@@ -21,6 +29,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
         }
     }
 
+    /// Exports the skipped slot statistics given `epoch_info` to `prometheus_leader_slots`.
     pub fn export_skipped_slots(
         &mut self,
         epoch_info: &EpochInfo,
@@ -49,15 +58,15 @@ impl<'a> SkippedSlotsMonitor<'a> {
             range_start, range_end, confirmed_blocks
         );
         let mut feed = prometheus_leader_slots.local();
-        for block in self.slot_index..epoch_info.slot_index {
-            let leader = &self.slot_leaders[&(block as usize)];
-            let absolute_block = first_slot + block;
-            let status = if confirmed_blocks.contains(&absolute_block) {
+        for slot_in_epoch in self.slot_index..epoch_info.slot_index {
+            let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
+            let absolute_slot = first_slot + slot_in_epoch;
+            let status = if confirmed_blocks.contains(&absolute_slot) {
                 "validated"
             } else {
                 "skipped"
             };
-            debug!("Leader {} {} block {}", leader, status, absolute_block);
+            debug!("Leader {} {} slot {}", leader, status, absolute_slot);
             feed.with_label_values(&[status, leader]).inc_by(1)
         }
         feed.flush();
@@ -67,6 +76,8 @@ impl<'a> SkippedSlotsMonitor<'a> {
         Ok(())
     }
 
+    /// Gets the leader schedule internally and inverts it, returning the slot leaders in the current
+    /// epoch.
     fn get_slot_leaders(&self) -> Result<BTreeMap<usize, String>, ClientError> {
         let mut slot_leaders = BTreeMap::new();
         match self.client.get_leader_schedule(None)? {

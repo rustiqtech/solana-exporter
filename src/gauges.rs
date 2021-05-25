@@ -88,7 +88,7 @@ impl PrometheusGauges {
             .unwrap(),
             leader_slots: register_int_counter_vec!(
                 "solana_leader_slots",
-                "Leader slots per validator ordered by skip rate",
+                "Validated and skipped leader slots per validator",
                 &[STATUS_LABEL, PUBKEY_LABEL]
             )
             .unwrap(),
