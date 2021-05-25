@@ -3,6 +3,7 @@ use std::net::IpAddr;
 
 pub mod api;
 pub mod caching;
+pub mod identifier;
 
 pub fn get_rpc_contact_ip(rpc: &RpcContactInfo) -> Option<IpAddr> {
     rpc.tpu.or(rpc.gossip).or(rpc.rpc).map(|s| s.ip())

@@ -1,6 +1,7 @@
 use crate::geolocation::api::{MaxMindAPIKey, MAXMIND_CITY_URI};
 use crate::geolocation::caching::GeoCache;
 use crate::geolocation::get_rpc_contact_ip;
+use crate::geolocation::identifier::DatacenterIdentifier;
 use anyhow::Context;
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
@@ -29,6 +30,7 @@ pub struct PrometheusGauges {
     pub leader_slots: IntGaugeVec,
     pub isp_count: IntGaugeVec,
     pub isp_by_stake: IntGaugeVec,
+    pub dc_by_stake: IntGaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -100,6 +102,12 @@ impl PrometheusGauges {
                 "solana_active_validators_isp_stake",
                 "ISP of active validators grouped by stake",
                 &["isp_name"]
+            )
+            .unwrap(),
+            dc_by_stake: register_int_gauge_vec!(
+                "solana_active_validators_dc_stake",
+                "Datacenter of active validators grouped by stake",
+                &["dc_identifier"]
             )
             .unwrap(),
             client: reqwest::Client::new(),
@@ -260,6 +268,7 @@ impl PrometheusGauges {
         // Gauges
         let mut isp_staked: HashMap<String, u64> = HashMap::new();
         let mut isp_count: HashMap<String, u64> = HashMap::new();
+        let mut dc_staked: HashMap<DatacenterIdentifier, u64> = HashMap::new();
 
         for (_, validator, city) in &geolocations {
             let isp = &city.traits.isp;
@@ -272,7 +281,9 @@ impl PrometheusGauges {
             let c = isp_count.entry(isp.clone()).or_default();
             *c += 1;
 
-            // TODO: solana_active_validators_data_centre_stake
+            // solana_active_validators_dc_stake
+            let dc = dc_staked.entry(city.clone().into()).or_default();
+            *dc += validator.activated_stake;
         }
 
         // Set gauges
@@ -282,10 +293,16 @@ impl PrometheusGauges {
                 .map(|c| c.set(*count as i64))?;
         }
 
-        for (isp, summation) in &isp_staked {
+        for (isp, staked) in &isp_staked {
             self.isp_by_stake
                 .get_metric_with_label_values(&[isp])
-                .map(|c| c.set(*summation as i64))?;
+                .map(|c| c.set(*staked as i64))?;
+        }
+
+        for (identifier, staked) in &dc_staked {
+            self.dc_by_stake
+                .get_metric_with_label_values(&[&identifier.to_string()])
+                .map(|c| c.set(*staked as i64))?;
         }
 
         Ok(())
