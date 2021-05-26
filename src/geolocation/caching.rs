@@ -5,13 +5,16 @@ use std::fs::create_dir_all;
 use std::net::IpAddr;
 use time::{Date, OffsetDateTime};
 
+/// Name of the caching database.
 pub const GEO_DB_CACHE_NAME: &str = "geolocation_cache.db";
 
+/// A caching database for geolocation information fetched from MaxMind.
 pub struct GeoCache {
     db: sled::Db,
 }
 
 impl GeoCache {
+    /// Create a new cache with the name stored in `GEO_DB_CACHE_NAME`.
     pub fn new() -> Self {
         let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
         create_dir_all(&exporter_dir).unwrap();
@@ -82,6 +85,8 @@ impl Default for GeoCache {
     }
 }
 
+/// The value (in key-value) for the caching database, consisting of the structured response
+/// from the API alongside metadata such as when the data was fetched.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeoInfo {
     pub response: CityApiResponse,
