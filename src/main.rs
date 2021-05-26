@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![feature(map_first_last)]
+
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::GeoCache;
@@ -121,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
     let geolocation_cache = GeoCache::new();
 
     let gauges = PrometheusGauges::new();
-    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(&client);
+    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(&client, &gauges.leader_slots);
 
     loop {
         let _guard = exporter.wait_duration(duration);
@@ -143,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
             .await
             .log_err("Failed to export IP address info metrics")?;
         skipped_slots_monitor
-            .export_skipped_slots(&epoch_info, &gauges.leader_slots)
+            .export_skipped_slots(&epoch_info)
             .log_err("Failed to export skipped slots")?;
     }
 }
