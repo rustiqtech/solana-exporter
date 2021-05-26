@@ -16,9 +16,23 @@
   "gnetId": null,
   "graphTooltip": 1,
   "id": 1,
-  "iteration": 1621948458082,
+  "iteration": 1622019866149,
   "links": [],
   "panels": [
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 20,
+      "panels": [],
+      "title": "Decentralisation Metrics",
+      "type": "row"
+    },
     {
       "aliasColors": {},
       "breakPoint": "50%",
@@ -38,7 +52,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "id": 17,
       "interval": null,
@@ -58,7 +72,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "solana_active_validators_geolocation_count",
+          "expr": "solana_active_validators_isp_count",
           "interval": "",
           "legendFormat": "{{isp_name}}",
           "refId": "A"
@@ -88,7 +102,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "id": 18,
       "interval": null,
@@ -108,7 +122,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "solana_active_validators_geolocation_stake",
+          "expr": "solana_active_validators_isp_stake",
           "interval": "",
           "legendFormat": "{{isp_name}}",
           "refId": "A"
@@ -119,15 +133,66 @@
       "valueName": "current"
     },
     {
+      "aliasColors": {},
+      "breakPoint": "50%",
+      "cacheTimeout": null,
+      "combine": {
+        "label": "Others",
+        "threshold": 0
+      },
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fontSize": "80%",
+      "format": "short",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 22,
+      "interval": null,
+      "legend": {
+        "percentage": true,
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "values": true
+      },
+      "legendType": "Right side",
+      "links": [],
+      "nullPointMode": "connected",
+      "pieType": "pie",
+      "pluginVersion": "7.5.7",
+      "strokeWidth": 1,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "solana_active_validators_dc_stake",
+          "interval": "",
+          "legendFormat": "{{dc_identifier}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Activated stake by Datacenter",
+      "type": "grafana-piechart-panel",
+      "valueName": "current"
+    },
+    {
+      "collapsed": false,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 18
       },
       "id": 15,
-      "title": "Row title",
+      "panels": [],
+      "title": "Solana Statistics",
       "type": "row"
     },
     {
@@ -148,7 +213,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 19
       },
       "hiddenSeries": false,
       "id": 13,
@@ -244,7 +309,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 19
       },
       "hiddenSeries": false,
       "id": 4,
@@ -337,7 +402,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 27
       },
       "hiddenSeries": false,
       "id": 2,
@@ -431,7 +496,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 17
+        "y": 27
       },
       "hiddenSeries": false,
       "id": 8,
@@ -525,7 +590,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 17
+        "y": 27
       },
       "hiddenSeries": false,
       "id": 9,
@@ -661,5 +726,5 @@
   "timezone": "",
   "title": "Solana Exporter",
   "uid": "fU8H9cmGz",
-  "version": 6
+  "version": 7
 }
