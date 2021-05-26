@@ -227,7 +227,7 @@ impl PrometheusGauges {
             .collect::<Vec<RpcInfoGeo>>();
 
         // For uncached, request them from maxmind.
-        println!(
+        debug!(
             "Uncached addresses: {:?}, cached addresses: {:?}.",
             &uncached.len(),
             &geolocations.len()
