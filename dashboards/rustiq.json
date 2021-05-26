@@ -66,7 +66,7 @@
       "legendType": "Right side",
       "links": [],
       "nullPointMode": "connected",
-      "pieType": "pie",
+      "pieType": "donut",
       "pluginVersion": "7.5.7",
       "strokeWidth": 1,
       "targets": [
@@ -116,7 +116,7 @@
       "legendType": "Right side",
       "links": [],
       "nullPointMode": "connected",
-      "pieType": "pie",
+      "pieType": "donut",
       "pluginVersion": "7.5.7",
       "strokeWidth": 1,
       "targets": [
@@ -165,7 +165,7 @@
       "legendType": "Right side",
       "links": [],
       "nullPointMode": "connected",
-      "pieType": "pie",
+      "pieType": "donut",
       "pluginVersion": "7.5.7",
       "strokeWidth": 1,
       "targets": [
