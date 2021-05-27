@@ -37,8 +37,6 @@ impl<'a> SkippedSlotsMonitor<'a> {
 
     /// Exports the skipped slot statistics given `epoch_info`.
     pub fn export_skipped_slots(&mut self, epoch_info: &EpochInfo) -> Result<(), ClientError> {
-        self.on_first_run(epoch_info)?;
-
         let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
 
         if self.epoch_number != epoch_info.epoch {
@@ -51,18 +49,26 @@ impl<'a> SkippedSlotsMonitor<'a> {
             return Ok(());
         }
 
-        let range_start = first_slot + self.slot_index;
-        let range_end = first_slot + epoch_info.slot_index;
+        let (abs_range_start, range_start) = if self.already_ran {
+            // Start from the last seen slot if already ran before.
+            (first_slot + self.slot_index, self.slot_index)
+        } else {
+            // Start from the first slot in the current epoch if running for the first time.
+            self.already_ran = true;
+            (first_slot, 0)
+        };
+        let range_end = epoch_info.slot_index;
+        let abs_range_end = first_slot + range_end;
 
         let confirmed_blocks = self
             .client
-            .get_confirmed_blocks(range_start, Some(range_end))?;
+            .get_confirmed_blocks(abs_range_start, Some(abs_range_end))?;
         debug!(
             "Confirmed blocks from {} to {}: {:?}",
-            range_start, range_end, confirmed_blocks
+            abs_range_start, abs_range_end, confirmed_blocks
         );
         let mut feed = self.leader_slots.local();
-        for slot_in_epoch in self.slot_index..epoch_info.slot_index {
+        for slot_in_epoch in range_start..range_end {
             let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
             let absolute_slot = first_slot + slot_in_epoch;
             let status = if confirmed_blocks.contains(&absolute_slot) {
@@ -77,45 +83,6 @@ impl<'a> SkippedSlotsMonitor<'a> {
 
         self.slot_index = epoch_info.slot_index;
         debug!("Exported leader slots and updated the slot index");
-        Ok(())
-    }
-
-    /// Reads and exports historical skipped block data.
-    fn on_first_run(&mut self, epoch_info: &EpochInfo) -> Result<(), ClientError> {
-        if self.already_ran {
-            return Ok(());
-        }
-        let fst = |p: (&usize, &String)| *p.0;
-        // Get leader schedules while they are still available.
-        //
-        // FIXME: even for the previous 3 epochs there are no schedules returned. So the whole code
-        // block is a noop.
-        for epoch in epoch_info.epoch - 3..epoch_info.epoch {
-            debug!("Getting skipped slots in epoch {}", epoch);
-            let slot_leaders = self.get_slot_leaders(Some(epoch))?;
-            if slot_leaders.is_empty() {
-                error!("Empty leader schedule in epoch {}", epoch);
-            } else {
-                let range_start =
-                    slot_leaders.first_key_value().map(fst).unwrap_or_default() as u64;
-                let range_end = slot_leaders.last_key_value().map(fst).unwrap_or_default() as u64;
-                let confirmed_blocks = self
-                    .client
-                    .get_confirmed_blocks(range_start, Some(range_end))?;
-                let mut feed = self.leader_slots.local();
-                for slot in range_start..=range_end {
-                    let leader = &slot_leaders[&(slot as usize)];
-                    let status = if confirmed_blocks.contains(&slot) {
-                        "validated"
-                    } else {
-                        "skipped"
-                    };
-                    feed.with_label_values(&[leader, status]).inc_by(1)
-                }
-                feed.flush();
-            }
-        }
-        self.already_ran = true;
         Ok(())
     }
 
