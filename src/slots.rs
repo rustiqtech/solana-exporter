@@ -71,7 +71,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
         for slot_in_epoch in range_start..range_end {
             let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
             let absolute_slot = first_slot + slot_in_epoch;
-            let status = if confirmed_blocks.contains(&absolute_slot) {
+            let status = if confirmed_blocks.binary_search(&absolute_slot).is_ok() {
                 "validated"
             } else {
                 "skipped"
