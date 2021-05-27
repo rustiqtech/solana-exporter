@@ -1,6 +1,6 @@
 //! Statistics of skipped and validated slots.
 
-use log::{debug, error};
+use log::{debug, log_enabled, Level};
 use prometheus_exporter::prometheus::IntCounterVec;
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
 use solana_sdk::epoch_info::EpochInfo;
@@ -76,7 +76,12 @@ impl<'a> SkippedSlotsMonitor<'a> {
             } else {
                 "skipped"
             };
-            debug!("Leader {} {} slot {}", leader, status, absolute_slot);
+            if log_enabled!(Level::Debug)
+                && (slot_in_epoch < range_start + 50 || range_end - 50 < slot_in_epoch)
+            {
+                // Log only a subset of slots on the first run.
+                debug!("Leader {} {} slot {}", leader, status, absolute_slot);
+            }
             feed.with_label_values(&[leader, status]).inc_by(1)
         }
         feed.flush();
