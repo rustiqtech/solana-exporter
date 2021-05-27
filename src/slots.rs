@@ -76,9 +76,10 @@ impl<'a> SkippedSlotsMonitor<'a> {
         let range_end = epoch_info.slot_index;
         let abs_range_end = first_slot + range_end;
 
-        let confirmed_blocks = self
+        let mut confirmed_blocks = self
             .client
             .get_confirmed_blocks(abs_range_start, Some(abs_range_end))?;
+        confirmed_blocks.sort_unstable();
         debug!(
             "Confirmed blocks from {} to {}: {:?}",
             abs_range_start, abs_range_end, confirmed_blocks
