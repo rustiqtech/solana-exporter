@@ -14,6 +14,7 @@ use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
 
+/// Label used for public key
 pub const PUBKEY_LABEL: &str = "pubkey";
 
 pub struct PrometheusGauges {
@@ -36,6 +37,7 @@ pub struct PrometheusGauges {
 }
 
 impl PrometheusGauges {
+    /// Makes new set of gauges.
     pub fn new() -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
@@ -114,6 +116,7 @@ impl PrometheusGauges {
         }
     }
 
+    /// Exports gauges for vote accounts
     pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
@@ -152,6 +155,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
+    /// Exports gauges for epoch
     pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let first_slot = epoch_info.absolute_slot as i64;
         let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
@@ -166,8 +170,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
-    // For now, this will export the IP addresses of active voting accounts with a node.
-    // TODO: This needs to actually export to a Prometheus gauge.
+    /// Exports gauges for geolocation of validators
     pub async fn export_ip_addresses(
         &self,
         nodes: &[RpcContactInfo],
@@ -202,7 +205,7 @@ impl PrometheusGauges {
                 .collect::<Vec<RpcInfo>>()
         };
 
-        // Separate cached from uncached
+        // Separate cached data from uncached data
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
             .into_iter()
             .map(|(contact, vote)| {
@@ -235,7 +238,6 @@ impl PrometheusGauges {
 
         let mut uncached =
             futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
-                // TODO: Consider making this a function? For now this works...
                 debug!(
                     "Contacting Maxmind for: {:?}",
                     get_rpc_contact_ip(&contact).unwrap()

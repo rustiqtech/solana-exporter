@@ -23,8 +23,7 @@ use std::{fmt::Debug, net::SocketAddr, time::Duration};
 pub mod gauges;
 pub mod geolocation;
 
-pub const PUBKEY_LABEL: &str = "pubkey";
-
+/// Name of directory where solana-exporter will
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
 /// Application config.

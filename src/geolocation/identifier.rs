@@ -2,6 +2,8 @@ use geoip2_city::CityApiResponse;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+/// A unique identifier for a datacenter. It consists of a AS Number, ISO-3166 country code, and
+/// optionally a city name.
 #[derive(Clone, Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct DatacenterIdentifier {
     autonomous_system_number: u32,
