@@ -53,9 +53,8 @@ impl<'a> SkippedSlotsMonitor<'a> {
 
     /// Exports the skipped slot statistics given `epoch_info`.
     pub fn export_skipped_slots(&mut self, epoch_info: &EpochInfo) -> Result<(), ClientError> {
-        let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
-
         if self.epoch_number != epoch_info.epoch {
+            // Update the monitor state.
             self.slot_leaders = self.get_slot_leaders(None)?;
             self.epoch_number = epoch_info.epoch;
             self.slot_index = epoch_info.slot_index;
@@ -65,6 +64,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
             return Ok(());
         }
 
+        let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
         let (abs_range_start, range_start) = if self.already_ran {
             // Start from the last seen slot if already ran before.
             (first_slot + self.slot_index, self.slot_index)
