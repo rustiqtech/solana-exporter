@@ -1,6 +1,7 @@
 use crate::geolocation::api::{MaxMindAPIKey, MAXMIND_CITY_URI};
 use crate::geolocation::caching::GeoCache;
 use crate::geolocation::get_rpc_contact_ip;
+use crate::geolocation::identifier::DatacenterIdentifier;
 use anyhow::Context;
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
@@ -14,7 +15,9 @@ use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
 
+/// Label used for the status value
 pub const STATUS_LABEL: &str = "status";
+/// Label used for public key
 pub const PUBKEY_LABEL: &str = "pubkey";
 
 pub struct PrometheusGauges {
@@ -31,11 +34,13 @@ pub struct PrometheusGauges {
     pub leader_slots: IntCounterVec,
     pub isp_count: IntGaugeVec,
     pub isp_by_stake: IntGaugeVec,
+    pub dc_by_stake: IntGaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
 
 impl PrometheusGauges {
+    /// Makes new set of gauges.
     pub fn new() -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
@@ -93,21 +98,28 @@ impl PrometheusGauges {
             )
             .unwrap(),
             isp_count: register_int_gauge_vec!(
-                "solana_active_validators_geolocation_count",
+                "solana_active_validators_isp_count",
                 "ISP of active validators",
                 &["isp_name"]
             )
             .unwrap(),
             isp_by_stake: register_int_gauge_vec!(
-                "solana_active_validators_geolocation_stake",
+                "solana_active_validators_isp_stake",
                 "ISP of active validators grouped by stake",
                 &["isp_name"]
+            )
+            .unwrap(),
+            dc_by_stake: register_int_gauge_vec!(
+                "solana_active_validators_dc_stake",
+                "Datacenter of active validators grouped by stake",
+                &["dc_identifier"]
             )
             .unwrap(),
             client: reqwest::Client::new(),
         }
     }
 
+    /// Exports gauges for vote accounts
     pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
@@ -146,6 +158,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
+    /// Exports gauges for epoch
     pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let first_slot = epoch_info.absolute_slot as i64;
         let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
@@ -160,8 +173,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
-    // For now, this will export the IP addresses of active voting accounts with a node.
-    // TODO: This needs to actually export to a Prometheus gauge.
+    /// Exports gauges for geolocation of validators
     pub async fn export_ip_addresses(
         &self,
         nodes: &[RpcContactInfo],
@@ -196,7 +208,7 @@ impl PrometheusGauges {
                 .collect::<Vec<RpcInfo>>()
         };
 
-        // Separate cached from uncached
+        // Separate cached data from uncached data
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
             .into_iter()
             .map(|(contact, vote)| {
@@ -221,7 +233,7 @@ impl PrometheusGauges {
             .collect::<Vec<RpcInfoGeo>>();
 
         // For uncached, request them from maxmind.
-        println!(
+        debug!(
             "Uncached addresses: {:?}, cached addresses: {:?}.",
             &uncached.len(),
             &geolocations.len()
@@ -229,7 +241,6 @@ impl PrometheusGauges {
 
         let mut uncached =
             futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
-                // TODO: Consider making this a function? For now this works...
                 debug!(
                     "Contacting Maxmind for: {:?}",
                     get_rpc_contact_ip(&contact).unwrap()
@@ -260,30 +271,43 @@ impl PrometheusGauges {
         geolocations.append(&mut uncached);
 
         // Gauges
-        let mut summation: HashMap<String, u64> = HashMap::new();
-        let mut count: HashMap<String, u64> = HashMap::new();
+        let mut isp_staked: HashMap<String, u64> = HashMap::new();
+        let mut isp_count: HashMap<String, u64> = HashMap::new();
+        let mut dc_staked: HashMap<DatacenterIdentifier, u64> = HashMap::new();
 
         for (_, validator, city) in &geolocations {
             let isp = &city.traits.isp;
 
-            let s = summation.entry(isp.clone()).or_default();
+            // solana_active_validators_isp_stake
+            let s = isp_staked.entry(isp.clone()).or_default();
             *s += validator.activated_stake;
 
-            let c = count.entry(isp.clone()).or_default();
+            // solana_active_validators_isp_count
+            let c = isp_count.entry(isp.clone()).or_default();
             *c += 1;
+
+            // solana_active_validators_dc_stake
+            let dc = dc_staked.entry(city.clone().into()).or_default();
+            *dc += validator.activated_stake;
         }
 
         // Set gauges
-        for (isp, count) in &count {
+        for (isp, count) in &isp_count {
             self.isp_count
                 .get_metric_with_label_values(&[isp])
                 .map(|c| c.set(*count as i64))?;
         }
 
-        for (isp, summation) in &summation {
+        for (isp, staked) in &isp_staked {
             self.isp_by_stake
                 .get_metric_with_label_values(&[isp])
-                .map(|c| c.set(*summation as i64))?;
+                .map(|c| c.set(*staked as i64))?;
+        }
+
+        for (identifier, staked) in &dc_staked {
+            self.dc_by_stake
+                .get_metric_with_label_values(&[&identifier.to_string()])
+                .map(|c| c.set(*staked as i64))?;
         }
 
         Ok(())

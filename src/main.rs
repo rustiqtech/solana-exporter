@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(map_first_last)]
-
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::GeoCache;
@@ -27,6 +25,7 @@ pub mod gauges;
 pub mod geolocation;
 pub mod slots;
 
+/// Name of directory where solana-exporter will
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
 /// Application config.
