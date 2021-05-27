@@ -5,6 +5,7 @@ use prometheus_exporter::prometheus::IntCounterVec;
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::BTreeMap;
+use std::fmt::{self, Display, Formatter};
 
 /// The monitor of skipped and validated slots per validator with minimal internal state.
 pub struct SkippedSlotsMonitor<'a> {
@@ -20,6 +21,21 @@ pub struct SkippedSlotsMonitor<'a> {
     slot_leaders: BTreeMap<usize, String>,
     /// `true` iff `SkippedSlotMonitor::export_skipped_slots` already ran.
     already_ran: bool,
+}
+
+enum SlotStatus {
+    Skipped,
+    Validated,
+}
+
+impl Display for SlotStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            SlotStatus::Skipped => "skipped",
+            SlotStatus::Validated => "validated",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 impl<'a> SkippedSlotsMonitor<'a> {
@@ -72,9 +88,9 @@ impl<'a> SkippedSlotsMonitor<'a> {
             let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
             let absolute_slot = first_slot + slot_in_epoch;
             let status = if confirmed_blocks.binary_search(&absolute_slot).is_ok() {
-                "validated"
+                SlotStatus::Validated
             } else {
-                "skipped"
+                SlotStatus::Skipped
             };
             if log_enabled!(Level::Debug)
                 && (slot_in_epoch < range_start + 50 || range_end - 50 < slot_in_epoch)
@@ -82,7 +98,8 @@ impl<'a> SkippedSlotsMonitor<'a> {
                 // Log only a subset of slots on the first run.
                 debug!("Leader {} {} slot {}", leader, status, absolute_slot);
             }
-            feed.with_label_values(&[leader, status]).inc_by(1)
+            feed.with_label_values(&[leader, &status.to_string()])
+                .inc_by(1)
         }
         feed.flush();
 
