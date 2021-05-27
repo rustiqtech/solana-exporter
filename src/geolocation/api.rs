@@ -7,7 +7,7 @@ pub struct MaxMindAPIKey {
 }
 
 impl MaxMindAPIKey {
-    /// Make a new key from a username and password.
+    /// Makes a new key from a username and password.
     pub fn new(username: &str, password: &str) -> Self {
         Self {
             username: username.to_owned(),
@@ -15,12 +15,12 @@ impl MaxMindAPIKey {
         }
     }
 
-    /// Get the username of the API key.
+    /// Gets the username of the API key.
     pub fn username(&self) -> &str {
         &self.username
     }
 
-    /// Get the password of the API key.
+    /// Gets the password of the API key.
     pub fn password(&self) -> &str {
         &self.password
     }

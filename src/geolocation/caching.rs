@@ -14,7 +14,7 @@ pub struct GeoCache {
 }
 
 impl GeoCache {
-    /// Create a new cache with the name stored in `GEO_DB_CACHE_NAME`.
+    /// Creates a new cache with the name stored in `GEO_DB_CACHE_NAME`.
     pub fn new() -> Self {
         let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
         create_dir_all(&exporter_dir).unwrap();
@@ -23,7 +23,7 @@ impl GeoCache {
         }
     }
 
-    /// Add an IP address and its corresponding information to the database
+    /// Adds an IP address and its corresponding information to the database
     pub fn add_ip_address(
         &self,
         ip_address: &IpAddr,
@@ -36,7 +36,7 @@ impl GeoCache {
             .transpose()?)
     }
 
-    /// Fetch the cached information about an IP address
+    /// Fetches the cached information about an IP address
     pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
         Ok(self
             .db
@@ -45,7 +45,7 @@ impl GeoCache {
             .transpose()?)
     }
 
-    /// Fetch the cached information about an IP address, after checking if will be invalidated.
+    /// Fetches the cached information about an IP address, after checking if will be invalidated.
     /// `f` is a function that will return `true` if, given a date, the cached data should be considered stale.
     pub fn fetch_ip_address_with_invalidation(
         &self,
@@ -69,7 +69,7 @@ impl GeoCache {
         }
     }
 
-    /// Remove cached information about an IP address.
+    /// Removes cached information about an IP address.
     pub fn remove_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
         Ok(self
             .db

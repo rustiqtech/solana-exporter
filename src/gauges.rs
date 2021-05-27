@@ -37,7 +37,7 @@ pub struct PrometheusGauges {
 }
 
 impl PrometheusGauges {
-    /// Make new set of gauges.
+    /// Makes new set of gauges.
     pub fn new() -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
@@ -116,7 +116,7 @@ impl PrometheusGauges {
         }
     }
 
-    /// Export gauges for vote accounts
+    /// Exports gauges for vote accounts
     pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
@@ -155,7 +155,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
-    /// Export gauges for epoch
+    /// Exports gauges for epoch
     pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let first_slot = epoch_info.absolute_slot as i64;
         let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
@@ -170,7 +170,7 @@ impl PrometheusGauges {
         Ok(())
     }
 
-    /// Export gauges for geolocation of validators
+    /// Exports gauges for geolocation of validators
     pub async fn export_ip_addresses(
         &self,
         nodes: &[RpcContactInfo],
