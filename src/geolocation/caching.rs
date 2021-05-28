@@ -1,26 +1,22 @@
-use crate::EXPORTER_DATA_DIR;
 use geoip2_city::CityApiResponse;
 use serde::{Deserialize, Serialize};
-use std::fs::create_dir_all;
 use std::net::IpAddr;
 use time::{Date, OffsetDateTime};
 
 /// Name of the caching database.
-pub const GEO_DB_CACHE_NAME: &str = "geolocation_cache.db";
+pub const GEO_DB_CACHE_TREE_NAME: &str = "geolocation_cache";
 
 /// A caching database for geolocation information fetched from MaxMind.
 pub struct GeoCache {
-    db: sled::Db,
+    db: sled::Tree,
 }
 
 impl GeoCache {
     /// Creates a new cache with the name stored in `GEO_DB_CACHE_NAME`.
-    pub fn new() -> Self {
-        let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
-        create_dir_all(&exporter_dir).unwrap();
-        Self {
-            db: sled::open(exporter_dir.join(GEO_DB_CACHE_NAME)).unwrap(),
-        }
+    pub fn new(database: &sled::Db) -> sled::Result<Self> {
+        Ok(Self {
+            db: database.open_tree(GEO_DB_CACHE_TREE_NAME)?,
+        })
     }
 
     /// Adds an IP address and its corresponding information to the database
@@ -76,12 +72,6 @@ impl GeoCache {
             .remove(bincode::serialize(ip_address)?)?
             .map(|x| bincode::deserialize(&x))
             .transpose()?)
-    }
-}
-
-impl Default for GeoCache {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
