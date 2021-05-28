@@ -14,17 +14,23 @@
 
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
-use crate::geolocation::caching::GeoCache;
+use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
+use crate::persistent_database::PersistentDatabase;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
+use std::fs::create_dir_all;
 use std::{fmt::Debug, net::SocketAddr, time::Duration};
 
 pub mod gauges;
 pub mod geolocation;
+pub mod persistent_database;
 
-/// Name of directory where solana-exporter will
+/// Name of directory where solana-exporter will store information
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
+
+/// Current version of `solana-exporter`
+pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Application config.
 struct Config {
@@ -34,6 +40,8 @@ struct Config {
     target: SocketAddr,
     /// Maxmind API
     api: MaxMindAPIKey,
+    /// Persistent database
+    database: PersistentDatabase,
 }
 
 /// Gets config parameters from the command line.
@@ -88,10 +96,14 @@ fn cli() -> anyhow::Result<Config> {
         .value_of("api_password")
         .expect("no maxmind API password supplied");
 
+    let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
+    create_dir_all(&exporter_dir).unwrap();
+
     Ok(Config {
         rpc,
         target,
         api: MaxMindAPIKey::new(api_username, api_password),
+        database: PersistentDatabase::new(&exporter_dir)?,
     })
 }
 
@@ -117,8 +129,7 @@ async fn main() -> anyhow::Result<()> {
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc);
-    let geolocation_cache = GeoCache::new();
-
+    let geolocation_cache = GeoCache::new(config.database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
 
     loop {
