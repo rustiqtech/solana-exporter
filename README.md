@@ -1,8 +1,8 @@
 ## Prometheus Exporter for Solana
 
-This is a Prometheus exporter for [Solana](https://github.com/solana-labs/solana) based on the
-[Golang original](https://github.com/certusone/solana_exporter) by CertusOne. It is the basis for
-Grafana dashboards and status alerts.
+This is a Prometheus exporter for [Solana](https://github.com/solana-labs/solana) originally based
+on the [Golang original](https://github.com/certusone/solana_exporter) by CertusOne but now
+providing additional functionality. It is the basis for Grafana dashboards and status alerts.
 
 ### Build
 
@@ -32,7 +32,7 @@ WantedBy=multi-user.target
 
 #### Dashboard
 
-A starting point can be the [dashboard by CertusOne](./dashboards/certusone.json).
+A starting point can be our [default dashboard](./dashboards/rustiq.json).
 
 #### Sample output to the Prometheus target endpoint
 
