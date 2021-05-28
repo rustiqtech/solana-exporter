@@ -2510,6 +2510,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "semver"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76b5842e81eb9bbea19276a9dbbda22ac042532f390a67ab08b895617978abf3"
+
+[[package]]
 name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2858,6 +2864,7 @@ dependencies = [
  "log",
  "prometheus_exporter",
  "reqwest",
+ "semver 1.0.0",
  "serde",
  "sled",
  "solana-client",

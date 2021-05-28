@@ -29,6 +29,9 @@ pub mod persistent_database;
 /// Name of directory where solana-exporter will store information
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
+/// Current version of `solana-exporter`
+pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Application config.
 struct Config {
     /// Solana RPC address.
