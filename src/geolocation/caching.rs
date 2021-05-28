@@ -13,10 +13,8 @@ pub struct GeoCache {
 
 impl GeoCache {
     /// Creates a new cache with the name stored in `GEO_DB_CACHE_NAME`.
-    pub fn new(database: &sled::Db) -> sled::Result<Self> {
-        Ok(Self {
-            db: database.open_tree(GEO_DB_CACHE_TREE_NAME)?,
-        })
+    pub fn new(tree: sled::Tree) -> Self {
+        Self { db: tree }
     }
 
     /// Adds an IP address and its corresponding information to the database
