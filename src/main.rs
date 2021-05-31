@@ -75,7 +75,7 @@ fn cli() -> anyhow::Result<Config> {
                 .short("u")
                 .long("api_username")
                 .value_name("USERNAME")
-                .help("Maxmind GeoIP2 API username")
+                .help("Maxmind GeoIP2 Precision Web Services API username")
                 .takes_value(true),
         )
         .arg(
@@ -83,7 +83,7 @@ fn cli() -> anyhow::Result<Config> {
                 .short("p")
                 .long("api_password")
                 .value_name("PASSWORD")
-                .help("Maxmind GeoIP2 API password")
+                .help("Maxmind GeoIP2 Precision Web Services API password")
                 .takes_value(true),
         )
         .get_matches();
