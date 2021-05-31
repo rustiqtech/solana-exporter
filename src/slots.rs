@@ -122,6 +122,8 @@ impl<'a> SkippedSlotsMonitor<'a> {
             };
             let skipped_count = get_count(SlotStatus::Skipped);
             let validated_count = get_count(SlotStatus::Validated);
+            // total_count > 0 since either skipped_count > 0 or validated_count > 0. Hence the
+            // result of division by total_count is always defined.
             let total_count = validated_count + skipped_count;
             let skipped_percent = (skipped_count as f64 / total_count as f64) * 100.0;
             self.skipped_slot_percent
