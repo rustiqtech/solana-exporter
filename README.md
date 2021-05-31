@@ -1,8 +1,8 @@
 ## Prometheus Exporter for Solana
 
-This is a Prometheus exporter for [Solana](https://github.com/solana-labs/solana) based on the
-[Golang original](https://github.com/certusone/solana_exporter) by CertusOne. It is the basis for
-Grafana dashboards and status alerts.
+This is a Prometheus exporter for [Solana](https://github.com/solana-labs/solana) originally based
+on the [Golang original](https://github.com/certusone/solana_exporter) by CertusOne but now
+providing additional functionality. It is the basis for Grafana dashboards and status alerts.
 
 ### Build
 
@@ -32,54 +32,50 @@ WantedBy=multi-user.target
 
 #### Dashboard
 
-A starting point can be the [dashboard by CertusOne](./dashboards/certusone.json).
+A starting point can be our [default dashboard](./dashboards/rustiq.json).  To display pie charts we
+use a [Grafana pie chart plugin](https://grafana.com/grafana/plugins/grafana-piechart-panel/). It
+needs to be installed in order for the pie charts to be displayed.
 
 #### Sample output to the Prometheus target endpoint
 
 Some repetitive lines are ellipsed for brevity in the example below.
 ```
-# HELP prometheus_exporter_request_duration_seconds The HTTP request latencies in seconds.
-# TYPE prometheus_exporter_request_duration_seconds histogram
-prometheus_exporter_request_duration_seconds_bucket{le="0.005"} 11
-prometheus_exporter_request_duration_seconds_bucket{le="0.01"} 11
-prometheus_exporter_request_duration_seconds_bucket{le="0.025"} 11
-prometheus_exporter_request_duration_seconds_bucket{le="0.05"} 11
-prometheus_exporter_request_duration_seconds_bucket{le="0.1"} 11
-...
-prometheus_exporter_request_duration_seconds_sum 0.0000105
-prometheus_exporter_request_duration_seconds_count 11
-# HELP prometheus_exporter_requests_total Number of HTTP requests received.
-# TYPE prometheus_exporter_requests_total counter
-prometheus_exporter_requests_total 11
-# HELP prometheus_exporter_response_size_bytes The HTTP response sizes in bytes.
-# TYPE prometheus_exporter_response_size_bytes gauge
-prometheus_exporter_response_size_bytes 136373
 # HELP solana_active_validators Total number of active validators
 # TYPE solana_active_validators gauge
-solana_active_validators{state="current"} 324
-solana_active_validators{state="delinquent"} 36
-# HELP solana_validator_activated_stake Activated stake of a validator
-# TYPE solana_validator_activated_stake gauge
-solana_validator_activated_stake{pubkey="13HNYUVBVHgJSfNKvgXgKia3bywzXabGzQjFyMQxLMjS"} 59998397935959
-solana_validator_activated_stake{pubkey="1gqv7KGm888nQXsJoNFwGaDkNERUBztuekjzK3J3T7a"} 250002741550967
-solana_validator_activated_stake{pubkey="21ryEourynXqhpLe1DsFz8yoeFKSXE14T8bKBFmzcYzt"} 2993151360
+solana_active_validators{status="current"} 561
+solana_active_validators{status="delinquent"} 51
+# HELP solana_active_validators_dc_stake Datacenter of active validators grouped by stake
+# TYPE solana_active_validators_dc_stake gauge
+solana_active_validators_dc_stake{dc_identifier="11427-US-Austin"} 9672542164238
+solana_active_validators_dc_stake{dc_identifier="11524-US-Portland"} 35172007429
+solana_active_validators_dc_stake{dc_identifier="12212-CA-Toronto"} 407342367161475
 ...
-# HELP solana_validator_is_delinquent Whether a validator is delinquent
-# TYPE solana_validator_is_delinquent gauge
-solana_validator_is_delinquent{pubkey="13HNYUVBVHgJSfNKvgXgKia3bywzXabGzQjFyMQxLMjS"} 0
-solana_validator_is_delinquent{pubkey="1gqv7KGm888nQXsJoNFwGaDkNERUBztuekjzK3J3T7a"} 0
-solana_validator_is_delinquent{pubkey="21ryEourynXqhpLe1DsFz8yoeFKSXE14T8bKBFmzcYzt"} 1
+# HELP solana_active_validators_isp_count ISP of active validators
+# TYPE solana_active_validators_isp_count gauge
+solana_active_validators_isp_count{isp_name="Advanced Solutions LLC"} 1
+solana_active_validators_isp_count{isp_name="Amazon.com"} 48
+solana_active_validators_isp_count{isp_name="CAIW Internet"} 1
 ...
-# HELP solana_validator_last_vote Last voted slot of a validator
-# TYPE solana_validator_last_vote gauge
-solana_validator_last_vote{pubkey="13HNYUVBVHgJSfNKvgXgKia3bywzXabGzQjFyMQxLMjS"} 58788403
-solana_validator_last_vote{pubkey="1gqv7KGm888nQXsJoNFwGaDkNERUBztuekjzK3J3T7a"} 58788443
-solana_validator_last_vote{pubkey="21ryEourynXqhpLe1DsFz8yoeFKSXE14T8bKBFmzcYzt"} 7393690
+# HELP solana_active_validators_isp_stake ISP of active validators grouped by stake
+# TYPE solana_active_validators_isp_stake gauge
+solana_active_validators_isp_stake{isp_name="Advanced Solutions LLC"} 230372233054571
+solana_active_validators_isp_stake{isp_name="Amazon.com"} 97432578281165840
+solana_active_validators_isp_stake{isp_name="CAIW Internet"} 352505951070073
 ...
-# HELP solana_validator_root_slot Root slot of a validator
-# TYPE solana_validator_root_slot gauge
-solana_validator_root_slot{pubkey="13HNYUVBVHgJSfNKvgXgKia3bywzXabGzQjFyMQxLMjS"} 58788362
-solana_validator_root_slot{pubkey="1gqv7KGm888nQXsJoNFwGaDkNERUBztuekjzK3J3T7a"} 58788379
-solana_validator_root_slot{pubkey="21ryEourynXqhpLe1DsFz8yoeFKSXE14T8bKBFmzcYzt"} 7393659
+# HELP solana_current_epoch Current epoch
+# TYPE solana_current_epoch gauge
+solana_current_epoch 186
+# HELP solana_current_epoch_first_slot Current epoch's first slot
+# TYPE solana_current_epoch_first_slot gauge
+solana_current_epoch_first_slot 80665865
+# HELP solana_current_epoch_last_slot Current epoch's last slot
+# TYPE solana_current_epoch_last_slot gauge
+solana_current_epoch_last_slot 81097865
+# HELP solana_leader_slots Validated and skipped leader slots per validator
+# TYPE solana_leader_slots counter
+solana_leader_slots{pubkey="12CUDzb3oe8RBQ4tYGqsuPsCbsVE4KWfktXRihXf8Ggq",status="skipped"} 54
+solana_leader_slots{pubkey="12CUDzb3oe8RBQ4tYGqsuPsCbsVE4KWfktXRihXf8Ggq",status="validated"} 146
+solana_leader_slots{pubkey="12oRmi8YDbqpkn326MdjwFeZ1bh3t7zVw8Nra2QK2SnR",status="skipped"} 35
+solana_leader_slots{pubkey="12oRmi8YDbqpkn326MdjwFeZ1bh3t7zVw8Nra2QK2SnR",status="validated"} 217
 ...
 ```

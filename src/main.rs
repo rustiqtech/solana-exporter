@@ -16,6 +16,7 @@ use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::PersistentDatabase;
+use crate::slots::SkippedSlotsMonitor;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
@@ -25,6 +26,7 @@ use std::{fmt::Debug, net::SocketAddr, time::Duration};
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
+pub mod slots;
 
 /// Name of directory where solana-exporter will store information
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
@@ -73,7 +75,7 @@ fn cli() -> anyhow::Result<Config> {
                 .short("u")
                 .long("api_username")
                 .value_name("USERNAME")
-                .help("Maxmind GeoIP2 API username")
+                .help("Maxmind GeoIP2 Precision Web Services API username")
                 .takes_value(true),
         )
         .arg(
@@ -81,7 +83,7 @@ fn cli() -> anyhow::Result<Config> {
                 .short("p")
                 .long("api_password")
                 .value_name("PASSWORD")
-                .help("Maxmind GeoIP2 API password")
+                .help("Maxmind GeoIP2 Precision Web Services API password")
                 .takes_value(true),
         )
         .get_matches();
@@ -131,6 +133,8 @@ async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new(config.rpc);
     let geolocation_cache = GeoCache::new(config.database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
+    let mut skipped_slots_monitor =
+        SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
 
     loop {
         let _guard = exporter.wait_duration(duration);
@@ -151,5 +155,8 @@ async fn main() -> anyhow::Result<()> {
             .export_ip_addresses(&nodes, &vote_accounts, &config.api, &geolocation_cache)
             .await
             .log_err("Failed to export IP address info metrics")?;
+        skipped_slots_monitor
+            .export_skipped_slots(&epoch_info)
+            .log_err("Failed to export skipped slots")?;
     }
 }
