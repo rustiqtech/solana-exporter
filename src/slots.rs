@@ -125,6 +125,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
             // total_count > 0 since either skipped_count > 0 or validated_count > 0. Hence the
             // result of division by total_count is always defined.
             let total_count = validated_count + skipped_count;
+            assert!(total_count > 0);
             let skipped_percent = (skipped_count as f64 / total_count as f64) * 100.0;
             self.skipped_slot_percent
                 .get_metric_with_label_values(&[leader])
