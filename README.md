@@ -36,8 +36,6 @@ A starting point can be our [default dashboard](./dashboards/rustiq.json).  To d
 use a [Grafana pie chart plugin](https://grafana.com/grafana/plugins/grafana-piechart-panel/). It
 needs to be installed in order for the pie charts to be displayed.
 
-<img src="https://imgur.com/a/Bi5xurZ" width="600" alt="" />
-
 #### Sample output to the Prometheus target endpoint
 
 Some repetitive lines are ellipsed for brevity in the example below.

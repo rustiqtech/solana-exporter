@@ -16,12 +16,16 @@
   "gnetId": null,
   "graphTooltip": 1,
   "id": 1,
-  "iteration": 1622019866149,
+  "iteration": 1622462231891,
   "links": [],
   "panels": [
     {
       "collapsed": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -42,10 +46,6 @@
         "threshold": 0
       },
       "datasource": null,
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
       "fontSize": "80%",
       "format": "short",
       "gridPos": {
@@ -92,10 +92,6 @@
       },
       "datasource": null,
       "description": "",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
       "fontSize": "80%",
       "format": "short",
       "gridPos": {
@@ -141,10 +137,6 @@
         "threshold": 0
       },
       "datasource": null,
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
       "fontSize": "80%",
       "format": "short",
       "gridPos": {
@@ -184,6 +176,10 @@
     {
       "collapsed": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -194,6 +190,210 @@
       "panels": [],
       "title": "Solana Statistics",
       "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "hiddenSeries": false,
+      "id": 25,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "max": true,
+        "min": true,
+        "show": true,
+        "sort": "min",
+        "sortDesc": false,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.0-beta2",
+      "pointradius": 1,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "solana_skipped_slot_percent",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Skipped slot percentages",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:78",
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": "100",
+          "min": "0",
+          "show": true
+        },
+        {
+          "$$hashKey": "object:79",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "hiddenSeries": false,
+      "id": 26,
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "max": true,
+        "min": true,
+        "show": true,
+        "sort": "min",
+        "sortDesc": false,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.0-beta2",
+      "pointradius": 1,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "avg(solana_skipped_slot_percent)",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Skipped slot average",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:78",
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": "100",
+          "min": "0",
+          "show": true
+        },
+        {
+          "$$hashKey": "object:79",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     },
     {
       "aliasColors": {},
@@ -213,7 +413,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 27
       },
       "hiddenSeries": false,
       "id": 13,
@@ -236,7 +436,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.7",
+      "pluginVersion": "8.0.0-beta2",
       "pointradius": 1,
       "points": true,
       "renderer": "flot",
@@ -309,7 +509,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 27
       },
       "hiddenSeries": false,
       "id": 4,
@@ -329,7 +529,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.7",
+      "pluginVersion": "8.0.0-beta2",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -402,7 +602,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 35
       },
       "hiddenSeries": false,
       "id": 2,
@@ -422,7 +622,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.7",
+      "pluginVersion": "8.0.0-beta2",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -457,6 +657,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:237",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -465,6 +666,7 @@
           "show": true
         },
         {
+          "$$hashKey": "object:238",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -496,7 +698,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 27
+        "y": 35
       },
       "hiddenSeries": false,
       "id": 8,
@@ -517,7 +719,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.7",
+      "pluginVersion": "8.0.0-beta2",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -590,7 +792,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 27
+        "y": 35
       },
       "hiddenSeries": false,
       "id": 9,
@@ -611,7 +813,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.5.7",
+      "pluginVersion": "8.0.0-beta2",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -668,7 +870,7 @@
     }
   ],
   "refresh": "",
-  "schemaVersion": 27,
+  "schemaVersion": 30,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -699,7 +901,6 @@
         "skipUrlSync": false,
         "sort": 0,
         "tagValuesQuery": "",
-        "tags": [],
         "tagsQuery": "",
         "type": "query",
         "useTags": false
@@ -725,6 +926,6 @@
   },
   "timezone": "",
   "title": "Solana Exporter",
-  "uid": "fU8H9cmGz",
-  "version": 7
+  "uid": "8xiT0W6Mk",
+  "version": 2
 }

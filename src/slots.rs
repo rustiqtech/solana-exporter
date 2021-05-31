@@ -1,7 +1,7 @@
 //! Statistics of skipped and validated slots.
 
 use log::{debug, log_enabled, Level};
-use prometheus_exporter::prometheus::IntCounterVec;
+use prometheus_exporter::prometheus::{GaugeVec, IntCounterVec};
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::BTreeMap;
@@ -11,8 +11,10 @@ use std::fmt::{self, Display, Formatter};
 pub struct SkippedSlotsMonitor<'a> {
     /// Shared Solana RPC client.
     client: &'a RpcClient,
-    /// Prometheus gauge.
+    /// Prometheus counter.
     leader_slots: &'a IntCounterVec,
+    /// Prometheus gauge.
+    skipped_slot_percent: &'a GaugeVec,
     /// The last observed epoch number.
     epoch_number: u64,
     /// The last observed slot index.
@@ -23,6 +25,7 @@ pub struct SkippedSlotsMonitor<'a> {
     already_ran: bool,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum SlotStatus {
     Skipped,
     Validated,
@@ -40,10 +43,15 @@ impl Display for SlotStatus {
 
 impl<'a> SkippedSlotsMonitor<'a> {
     /// Constructs a monitor given `client`.
-    pub fn new(client: &'a RpcClient, leader_slots: &'a IntCounterVec) -> Self {
+    pub fn new(
+        client: &'a RpcClient,
+        leader_slots: &'a IntCounterVec,
+        skipped_slot_percent: &'a GaugeVec,
+    ) -> Self {
         Self {
             client,
             leader_slots,
+            skipped_slot_percent,
             epoch_number: 0,
             slot_index: 0,
             slot_leaders: Default::default(),
@@ -52,7 +60,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
     }
 
     /// Exports the skipped slot statistics given `epoch_info`.
-    pub fn export_skipped_slots(&mut self, epoch_info: &EpochInfo) -> Result<(), ClientError> {
+    pub fn export_skipped_slots(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         if self.epoch_number != epoch_info.epoch {
             // Update the monitor state.
             self.slot_leaders = self.get_slot_leaders(None)?;
@@ -99,10 +107,27 @@ impl<'a> SkippedSlotsMonitor<'a> {
                 // Log only a subset of slots on the first run.
                 debug!("Leader {} {} slot {}", leader, status, absolute_slot);
             }
-            feed.with_label_values(&[leader, &status.to_string()])
-                .inc_by(1)
+            feed.with_label_values(&[leader, &status.to_string()]).inc();
         }
         feed.flush();
+
+        // Update skipped slot percentages.
+        for slot_in_epoch in range_start..range_end {
+            let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
+            let get_count = |slot_status: SlotStatus| {
+                self.leader_slots
+                    .get_metric_with_label_values(&[leader, &slot_status.to_string()])
+                    .map(|m| m.get())
+                    .unwrap_or_default()
+            };
+            let skipped_count = get_count(SlotStatus::Skipped);
+            let validated_count = get_count(SlotStatus::Validated);
+            let total_count = validated_count + skipped_count;
+            let skipped_percent = (skipped_count as f64 / total_count as f64) * 100.0;
+            self.skipped_slot_percent
+                .get_metric_with_label_values(&[leader])
+                .map(|c| c.set(skipped_percent as f64))?;
+        }
 
         self.slot_index = epoch_info.slot_index;
         debug!("Exported leader slots and updated the slot index");

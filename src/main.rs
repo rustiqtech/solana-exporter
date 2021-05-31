@@ -133,7 +133,8 @@ async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new(config.rpc);
     let geolocation_cache = GeoCache::new(config.database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
-    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(&client, &gauges.leader_slots);
+    let mut skipped_slots_monitor =
+        SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
 
     loop {
         let _guard = exporter.wait_duration(duration);

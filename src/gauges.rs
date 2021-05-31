@@ -31,10 +31,11 @@ pub struct PrometheusGauges {
     pub current_epoch: IntGauge,
     pub current_epoch_first_slot: IntGauge,
     pub current_epoch_last_slot: IntGauge,
-    pub leader_slots: IntCounterVec,
     pub isp_count: IntGaugeVec,
     pub isp_by_stake: IntGaugeVec,
     pub dc_by_stake: IntGaugeVec,
+    pub leader_slots: IntCounterVec,
+    pub skipped_slot_percent: GaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -91,12 +92,6 @@ impl PrometheusGauges {
                 "Current epoch's last slot"
             )
             .unwrap(),
-            leader_slots: register_int_counter_vec!(
-                "solana_leader_slots",
-                "Validated and skipped leader slots per validator",
-                &[PUBKEY_LABEL, STATUS_LABEL]
-            )
-            .unwrap(),
             isp_count: register_int_gauge_vec!(
                 "solana_active_validators_isp_count",
                 "ISP of active validators",
@@ -113,6 +108,18 @@ impl PrometheusGauges {
                 "solana_active_validators_dc_stake",
                 "Datacenter of active validators grouped by stake",
                 &["dc_identifier"]
+            )
+            .unwrap(),
+            leader_slots: register_int_counter_vec!(
+                "solana_leader_slots",
+                "Validated and skipped leader slots per validator",
+                &[PUBKEY_LABEL, STATUS_LABEL]
+            )
+            .unwrap(),
+            skipped_slot_percent: register_gauge_vec!(
+                "solana_skipped_slot_percent",
+                "Skipped slot percentage per validator",
+                &[PUBKEY_LABEL]
             )
             .unwrap(),
             client: reqwest::Client::new(),
