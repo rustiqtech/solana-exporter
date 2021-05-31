@@ -2,7 +2,10 @@
 name = "solana-exporter"
 description = "Prometheus exporter for the Solana validator"
 version = "0.3.0"
-authors = ["Vladimir Komendantskiy <komendantsky@gmail.com>"]
+authors = [
+    "Vladimir Komendantskiy <komendantsky@gmail.com>",
+    "Anson Cheung <git@anson-cheung.com>"
+]
 repository = "https://github.com/vkomenda/solana-exporter"
 license = "Apache-2.0"
 readme = "README.md"
