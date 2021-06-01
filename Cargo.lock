@@ -1096,7 +1096,7 @@ dependencies = [
 
 [[package]]
 name = "geoip2-city"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
 ]
@@ -2852,7 +2852,7 @@ dependencies = [
 
 [[package]]
 name = "solana-exporter"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "bincode",
