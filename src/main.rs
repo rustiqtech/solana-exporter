@@ -18,7 +18,7 @@ use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
-use clap::{App, Arg};
+use clap::{load_yaml, App};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
 use std::path::Path;
@@ -44,27 +44,8 @@ struct CliConfig {
 
 /// Gets config parameters from the command line.
 fn cli() -> anyhow::Result<CliConfig> {
-    let matches = App::new("Solana Prometheus Exporter")
-        .version("0.1")
-        .author("Vladimir Komendantskiy <komendantsky@gmail.com>")
-        .about("Publishes Solana validator metrics to Prometheus")
-        .arg(
-            Arg::with_name("database")
-                .short("d")
-                .long("database")
-                .value_name("FILE")
-                .help("Specify a persistent database location")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("config")
-                .short("c")
-                .long("config")
-                .value_name("FILE")
-                .help("Specify a config file location")
-                .takes_value(true),
-        )
-        .get_matches();
+    let yaml = load_yaml!("cli.yml");
+    let matches = App::from_yaml(yaml).get_matches();
 
     let database_location = matches.value_of("database").map(|s| s.to_string());
     let config_location = matches.value_of("config").map(|c| c.to_string());

@@ -1,0 +1,17 @@
+name: Solana Prometheus Exporter
+version: "0.3.0"
+author: Vladimir Komendantskiy <komendantsky@gmail.com>
+about: Publishes Solana validator metrics to Prometheus
+args:
+  - database:
+      short: d
+      long: database
+      value_name: FILE
+      help: Specify a persistent database location
+      takes_value: true
+  - config:
+      short: c
+      long: config
+      value_name: FILE
+      help: Specify a config file location
+      takes_value: true
