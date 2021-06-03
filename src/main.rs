@@ -17,6 +17,7 @@ use crate::gauges::PrometheusGauges;
 use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
+use anyhow::Context;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
@@ -106,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
                     .join(DATABASE_FILE_NAME)
             });
 
+        // TODO: Show warning if database not found, since sled will make a new file?
         PersistentDatabase::new(&location)
     }?;
 
@@ -121,7 +123,8 @@ async fn main() -> anyhow::Result<()> {
                     .join(CONFIG_FILE_NAME)
             });
 
-        let file_contents = fs::read_to_string(location)?;
+        let file_contents = fs::read_to_string(location)
+            .context("could not find config file in specified location")?;
 
         toml::from_str::<ExporterConfig>(&file_contents)
     }?;
