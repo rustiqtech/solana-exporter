@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
-use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
-use crate::persistent_database::PersistentDatabase;
+use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
 use clap::{App, Arg};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
-use std::fs::create_dir_all;
-use std::{fmt::Debug, net::SocketAddr, time::Duration};
+use std::path::Path;
+use std::{fmt::Debug, fs, time::Duration};
 
+pub mod config;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
@@ -34,78 +35,42 @@ pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 /// Current version of `solana-exporter`
 pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Application config.
-struct Config {
-    /// Solana RPC address.
-    rpc: String,
-    /// Prometheus target socket address.
-    target: SocketAddr,
-    /// Maxmind API
-    api: MaxMindAPIKey,
-    /// Persistent database
-    database: PersistentDatabase,
+/// Command line configs passed in.
+struct CliConfig {
+    database_override: Option<String>,
+    config_override: Option<String>,
 }
 
 /// Gets config parameters from the command line.
-fn cli() -> anyhow::Result<Config> {
+fn cli() -> anyhow::Result<CliConfig> {
     let matches = App::new("Solana Prometheus Exporter")
         .version("0.1")
         .author("Vladimir Komendantskiy <komendantsky@gmail.com>")
         .about("Publishes Solana validator metrics to Prometheus")
         .arg(
-            Arg::with_name("rpc")
-                .short("r")
-                .long("rpc")
-                .value_name("ADDRESS")
-                .default_value("http://localhost:8899")
-                .help("Solana RPC endpoint address")
+            Arg::with_name("database")
+                .short("d")
+                .long("database")
+                .value_name("FILE")
+                .help("Specify a persistent database location")
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("target")
-                .short("t")
-                .long("target")
-                .value_name("ADDRESS")
-                .default_value("0.0.0.0:9179")
-                .help("Prometheus target endpoint address")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("api_username")
-                .short("u")
-                .long("api_username")
-                .value_name("USERNAME")
-                .help("Maxmind GeoIP2 Precision Web Services API username")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("api_password")
-                .short("p")
-                .long("api_password")
-                .value_name("PASSWORD")
-                .help("Maxmind GeoIP2 Precision Web Services API password")
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .help("Specify a config file location")
                 .takes_value(true),
         )
         .get_matches();
 
-    // Gets a value for config if supplied by user, or defaults to "default.conf"
-    let target: SocketAddr = matches.value_of("target").unwrap().parse()?;
-    let rpc: String = matches.value_of("rpc").unwrap().to_owned();
-    let api_username = matches
-        .value_of("api_username")
-        .expect("no maxmind API username supplied");
-    let api_password = matches
-        .value_of("api_password")
-        .expect("no maxmind API password supplied");
+    let database_location = matches.value_of("database").map(|s| s.to_string());
+    let config_location = matches.value_of("config").map(|c| c.to_string());
 
-    let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
-    create_dir_all(&exporter_dir).unwrap();
-
-    Ok(Config {
-        rpc,
-        target,
-        api: MaxMindAPIKey::new(api_username, api_password),
-        database: PersistentDatabase::new(&exporter_dir)?,
+    Ok(CliConfig {
+        database_override: database_location,
+        config_override: config_location,
     })
 }
 
@@ -127,11 +92,44 @@ impl<T, E: Debug> LogErr for Result<T, E> {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let config = cli()?;
+    // Read from CLI arguments
+    let cli_config = cli()?;
+    let persistent_database = {
+        // Use override from CLI or default.
+        let location = cli_config
+            .database_override
+            .map(|s| Path::new(&s).to_path_buf())
+            .unwrap_or_else(|| {
+                dirs::home_dir()
+                    .unwrap()
+                    .join(EXPORTER_DATA_DIR)
+                    .join(DATABASE_FILE_NAME)
+            });
+
+        PersistentDatabase::new(&location)
+    }?;
+
+    let config = {
+        // Use override from CLI or default.
+        let location = cli_config
+            .config_override
+            .map(|s| Path::new(&s).to_path_buf())
+            .unwrap_or_else(|| {
+                dirs::home_dir()
+                    .unwrap()
+                    .join(EXPORTER_DATA_DIR)
+                    .join(CONFIG_FILE_NAME)
+            });
+
+        let file_contents = fs::read_to_string(location)?;
+
+        toml::from_str::<ExporterConfig>(&file_contents)
+    }?;
+
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc);
-    let geolocation_cache = GeoCache::new(config.database.tree(GEO_DB_CACHE_TREE_NAME)?);
+    let geolocation_cache = GeoCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
@@ -152,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
             .export_epoch_info(&epoch_info)
             .log_err("Failed to export epoch info metrics")?;
         gauges
-            .export_ip_addresses(&nodes, &vote_accounts, &config.api, &geolocation_cache)
+            .export_ip_addresses(&nodes, &vote_accounts, &config.maxmind, &geolocation_cache)
             .await
             .log_err("Failed to export IP address info metrics")?;
         skipped_slots_monitor
