@@ -2871,6 +2871,7 @@ dependencies = [
  "solana-sdk",
  "time 0.2.26",
  "tokio 1.6.0",
+ "toml",
 ]
 
 [[package]]
