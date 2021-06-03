@@ -1,5 +1,5 @@
 rpc = "http://localhost:8899"
-prometheus_target = "0.0.0.0:9179"
+target = "0.0.0.0:9179"
 
 [maxmind]
 username = "12345"

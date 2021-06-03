@@ -1,6 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 pub const MAXMIND_CITY_URI: &str = "https://geoip.maxmind.com/geoip/v2.1/city";
 
 /// An API key that can be used to access MaxMind services.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MaxMindAPIKey {
     username: String,
     password: String,

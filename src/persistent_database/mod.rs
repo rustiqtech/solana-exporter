@@ -7,7 +7,7 @@ use std::str::FromStr;
 pub mod metadata;
 
 /// Name of database name
-pub const DATABASE_NAME: &str = "persistent.db";
+pub const DATABASE_FILE_NAME: &str = "persistent.db";
 
 /// A persistent database used for storing data across `solana-exporter` runs.
 /// Note: The databases will be kept backwards-compatible according to semantic version for
@@ -20,7 +20,7 @@ pub struct PersistentDatabase {
 impl PersistentDatabase {
     /// Creates/opens a new persistent database in the path provided.
     pub fn new(dir: &Path) -> anyhow::Result<Self> {
-        let database = sled::open(dir.join(DATABASE_NAME))?;
+        let database = sled::open(dir)?;
         let metadata = Metadata::new(database.open_tree("metadata")?)?;
 
         let created_version = metadata.created_version()?;
