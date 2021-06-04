@@ -15,3 +15,13 @@ args:
       value_name: FILE
       help: Specify a config file location
       takes_value: true
+
+subcommands:
+    - generate:
+        args:
+          - output:
+              short: o
+              long: output
+              value_name: FILE
+              help: Specify a location to write the template config file
+              takes_value: true
