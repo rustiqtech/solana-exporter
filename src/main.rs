@@ -14,6 +14,7 @@
 
 use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
+use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
@@ -21,6 +22,9 @@ use anyhow::Context;
 use clap::{load_yaml, App};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
+use std::fs::File;
+use std::io::Write;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::{fmt::Debug, fs, time::Duration};
 
@@ -35,26 +39,6 @@ pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
 /// Current version of `solana-exporter`
 pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Command line configs passed in.
-struct CliConfig {
-    database_override: Option<String>,
-    config_override: Option<String>,
-}
-
-/// Gets config parameters from the command line.
-fn cli() -> anyhow::Result<CliConfig> {
-    let yaml = load_yaml!("cli.yml");
-    let matches = App::from_yaml(yaml).get_matches();
-
-    let database_location = matches.value_of("database").map(|s| s.to_string());
-    let config_location = matches.value_of("config").map(|c| c.to_string());
-
-    Ok(CliConfig {
-        database_override: database_location,
-        config_override: config_location,
-    })
-}
 
 /// Error result logger.
 trait LogErr {
@@ -75,12 +59,41 @@ impl<T, E: Debug> LogErr for Result<T, E> {
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
     // Read from CLI arguments
-    let cli_config = cli()?;
+    let yaml = load_yaml!("cli.yml");
+    let cli_configs = App::from_yaml(yaml).get_matches();
+
+    // Subcommands
+    match cli_configs.subcommand() {
+        ("generate", Some(sc)) => {
+            let template_config = ExporterConfig {
+                rpc: "http://localhost:8899".to_string(),
+                target: SocketAddr::new("0.0.0.0".parse()?, 9179),
+                maxmind: MaxMindAPIKey::new("username", "password"),
+            };
+
+            let location = sc
+                .value_of("output")
+                .map(|s| Path::new(s).to_path_buf())
+                .unwrap_or_else(|| {
+                    dirs::home_dir()
+                        .unwrap()
+                        .join(EXPORTER_DATA_DIR)
+                        .join(CONFIG_FILE_NAME)
+                });
+
+            let mut file = File::create(location)?;
+            file.write_all(toml::to_string_pretty(&template_config)?.as_ref())?;
+            std::process::exit(0);
+        }
+
+        (_, _) => {}
+    }
+
     let persistent_database = {
         // Use override from CLI or default.
-        let location = cli_config
-            .database_override
-            .map(|s| Path::new(&s).to_path_buf())
+        let location = cli_configs
+            .value_of("database")
+            .map(|s| Path::new(s).to_path_buf())
             .unwrap_or_else(|| {
                 dirs::home_dir()
                     .unwrap()
@@ -94,9 +107,9 @@ async fn main() -> anyhow::Result<()> {
 
     let config = {
         // Use override from CLI or default.
-        let location = cli_config
-            .config_override
-            .map(|s| Path::new(&s).to_path_buf())
+        let location = cli_configs
+            .value_of("config")
+            .map(|s| Path::new(s).to_path_buf())
             .unwrap_or_else(|| {
                 dirs::home_dir()
                     .unwrap()
