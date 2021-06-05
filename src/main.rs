@@ -127,7 +127,7 @@ async fn main() -> anyhow::Result<()> {
 
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
-    let client = RpcClient::new(config.rpc);
+    let client = RpcClient::new(config.rpc.clone());
     let geolocation_cache = GeoCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
@@ -149,13 +149,7 @@ async fn main() -> anyhow::Result<()> {
             .export_epoch_info(&epoch_info)
             .log_err("Failed to export epoch info metrics")?;
         gauges
-            .export_ip_addresses(
-                &nodes,
-                &vote_accounts,
-                &config.maxmind,
-                &geolocation_cache,
-                &config.pubkey_whitelist,
-            )
+            .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &config)
             .await
             .log_err("Failed to export IP address info metrics")?;
         skipped_slots_monitor
