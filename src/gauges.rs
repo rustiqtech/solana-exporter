@@ -12,7 +12,7 @@ use prometheus_exporter::prometheus::{
 };
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use time::{Duration, OffsetDateTime};
 
 /// Label used for the status value
@@ -187,6 +187,7 @@ impl PrometheusGauges {
         vote_accounts: &RpcVoteAccountStatus,
         api_key: &MaxMindAPIKey,
         cache: &GeoCache,
+        pubkey_whitelist: &HashSet<String>,
     ) -> anyhow::Result<()> {
         // Define all types here
         type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
@@ -213,6 +214,16 @@ impl PrometheusGauges {
                         .map(|vote| (contact, vote.clone()))
                 })
                 .collect::<Vec<RpcInfo>>()
+        };
+
+        // If whitelist exists, remove all non-listed pubkeys
+        let validator_nodes = if !pubkey_whitelist.is_empty() {
+            validator_nodes
+                .into_iter()
+                .filter(|(contact, _)| pubkey_whitelist.contains(&contact.pubkey))
+                .collect()
+        } else {
+            validator_nodes
         };
 
         // Separate cached data from uncached data

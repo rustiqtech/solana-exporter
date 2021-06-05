@@ -22,6 +22,7 @@ use anyhow::Context;
 use clap::{load_yaml, App};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::net::SocketAddr;
@@ -69,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: MaxMindAPIKey::new("username", "password"),
+                pubkey_whitelist: HashSet::default(),
             };
 
             let location = sc
@@ -147,7 +149,13 @@ async fn main() -> anyhow::Result<()> {
             .export_epoch_info(&epoch_info)
             .log_err("Failed to export epoch info metrics")?;
         gauges
-            .export_ip_addresses(&nodes, &vote_accounts, &config.maxmind, &geolocation_cache)
+            .export_ip_addresses(
+                &nodes,
+                &vote_accounts,
+                &config.maxmind,
+                &geolocation_cache,
+                &config.pubkey_whitelist,
+            )
             .await
             .log_err("Failed to export IP address info metrics")?;
         skipped_slots_monitor
