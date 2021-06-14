@@ -386,6 +386,7 @@ dependencies = [
  "textwrap",
  "unicode-width",
  "vec_map",
+ "yaml-rust 0.3.5",
 ]
 
 [[package]]
@@ -2591,7 +2592,7 @@ dependencies = [
  "dtoa",
  "linked-hash-map",
  "serde",
- "yaml-rust",
+ "yaml-rust 0.4.5",
 ]
 
 [[package]]
@@ -2852,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "solana-exporter"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2871,6 +2872,7 @@ dependencies = [
  "solana-sdk",
  "time 0.2.26",
  "tokio 1.6.0",
+ "toml",
 ]
 
 [[package]]
@@ -4212,6 +4214,12 @@ checksum = "244c3741f4240ef46274860397c7c74e50eb23624996930e484c16679633a54c"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "yaml-rust"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e66366e18dc58b46801afbf2ca7661a9f59cc8c5962c29892b6039b4f86fa992"
 
 [[package]]
 name = "yaml-rust"

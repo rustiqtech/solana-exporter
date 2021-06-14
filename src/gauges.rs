@@ -1,4 +1,5 @@
-use crate::geolocation::api::{MaxMindAPIKey, MAXMIND_CITY_URI};
+use crate::config::ExporterConfig;
+use crate::geolocation::api::MAXMIND_CITY_URI;
 use crate::geolocation::caching::GeoCache;
 use crate::geolocation::get_rpc_contact_ip;
 use crate::geolocation::identifier::DatacenterIdentifier;
@@ -185,8 +186,8 @@ impl PrometheusGauges {
         &self,
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
-        api_key: &MaxMindAPIKey,
         cache: &GeoCache,
+        exporter_config: &ExporterConfig,
     ) -> anyhow::Result<()> {
         // Define all types here
         type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
@@ -213,6 +214,16 @@ impl PrometheusGauges {
                         .map(|vote| (contact, vote.clone()))
                 })
                 .collect::<Vec<RpcInfo>>()
+        };
+
+        // If whitelist exists, remove all non-listed pubkeys
+        let validator_nodes = if !exporter_config.pubkey_whitelist.is_empty() {
+            validator_nodes
+                .into_iter()
+                .filter(|(contact, _)| exporter_config.pubkey_whitelist.contains(&contact.pubkey))
+                .collect()
+        } else {
+            validator_nodes
         };
 
         // Separate cached data from uncached data
@@ -259,7 +270,10 @@ impl PrometheusGauges {
                         MAXMIND_CITY_URI,
                         get_rpc_contact_ip(&contact).unwrap()
                     ))
-                    .basic_auth(api_key.username(), Some(api_key.password()))
+                    .basic_auth(
+                        exporter_config.maxmind.username(),
+                        Some(exporter_config.maxmind.password()),
+                    )
                     .send()
                     .and_then(|resp| resp.json::<CityApiResponse>())
                     .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })

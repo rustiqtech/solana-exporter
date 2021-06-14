@@ -12,17 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
-use crate::persistent_database::PersistentDatabase;
+use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
-use clap::{App, Arg};
+use anyhow::Context;
+use clap::{load_yaml, App};
 use log::{debug, error};
 use solana_client::rpc_client::RpcClient;
-use std::fs::create_dir_all;
-use std::{fmt::Debug, net::SocketAddr, time::Duration};
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::Write;
+use std::net::SocketAddr;
+use std::path::Path;
+use std::{fmt::Debug, fs, time::Duration};
 
+pub mod config;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
@@ -33,81 +40,6 @@ pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
 /// Current version of `solana-exporter`
 pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Application config.
-struct Config {
-    /// Solana RPC address.
-    rpc: String,
-    /// Prometheus target socket address.
-    target: SocketAddr,
-    /// Maxmind API
-    api: MaxMindAPIKey,
-    /// Persistent database
-    database: PersistentDatabase,
-}
-
-/// Gets config parameters from the command line.
-fn cli() -> anyhow::Result<Config> {
-    let matches = App::new("Solana Prometheus Exporter")
-        .version("0.1")
-        .author("Vladimir Komendantskiy <komendantsky@gmail.com>")
-        .about("Publishes Solana validator metrics to Prometheus")
-        .arg(
-            Arg::with_name("rpc")
-                .short("r")
-                .long("rpc")
-                .value_name("ADDRESS")
-                .default_value("http://localhost:8899")
-                .help("Solana RPC endpoint address")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("target")
-                .short("t")
-                .long("target")
-                .value_name("ADDRESS")
-                .default_value("0.0.0.0:9179")
-                .help("Prometheus target endpoint address")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("api_username")
-                .short("u")
-                .long("api_username")
-                .value_name("USERNAME")
-                .help("Maxmind GeoIP2 Precision Web Services API username")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("api_password")
-                .short("p")
-                .long("api_password")
-                .value_name("PASSWORD")
-                .help("Maxmind GeoIP2 Precision Web Services API password")
-                .takes_value(true),
-        )
-        .get_matches();
-
-    // Gets a value for config if supplied by user, or defaults to "default.conf"
-    let target: SocketAddr = matches.value_of("target").unwrap().parse()?;
-    let rpc: String = matches.value_of("rpc").unwrap().to_owned();
-    let api_username = matches
-        .value_of("api_username")
-        .expect("no maxmind API username supplied");
-    let api_password = matches
-        .value_of("api_password")
-        .expect("no maxmind API password supplied");
-
-    let exporter_dir = dirs::home_dir().unwrap().join(EXPORTER_DATA_DIR);
-    create_dir_all(&exporter_dir).unwrap();
-
-    Ok(Config {
-        rpc,
-        target,
-        api: MaxMindAPIKey::new(api_username, api_password),
-        database: PersistentDatabase::new(&exporter_dir)?,
-    })
-}
 
 /// Error result logger.
 trait LogErr {
@@ -127,11 +59,76 @@ impl<T, E: Debug> LogErr for Result<T, E> {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let config = cli()?;
+    // Read from CLI arguments
+    let yaml = load_yaml!("cli.yml");
+    let cli_configs = App::from_yaml(yaml).get_matches();
+
+    // Subcommands
+    match cli_configs.subcommand() {
+        ("generate", Some(sc)) => {
+            let template_config = ExporterConfig {
+                rpc: "http://localhost:8899".to_string(),
+                target: SocketAddr::new("0.0.0.0".parse()?, 9179),
+                maxmind: MaxMindAPIKey::new("username", "password"),
+                pubkey_whitelist: HashSet::default(),
+            };
+
+            let location = sc
+                .value_of("output")
+                .map(|s| Path::new(s).to_path_buf())
+                .unwrap_or_else(|| {
+                    dirs::home_dir()
+                        .unwrap()
+                        .join(EXPORTER_DATA_DIR)
+                        .join(CONFIG_FILE_NAME)
+                });
+
+            let mut file = File::create(location)?;
+            file.write_all(toml::to_string_pretty(&template_config)?.as_ref())?;
+            std::process::exit(0);
+        }
+
+        (_, _) => {}
+    }
+
+    let persistent_database = {
+        // Use override from CLI or default.
+        let location = cli_configs
+            .value_of("database")
+            .map(|s| Path::new(s).to_path_buf())
+            .unwrap_or_else(|| {
+                dirs::home_dir()
+                    .unwrap()
+                    .join(EXPORTER_DATA_DIR)
+                    .join(DATABASE_FILE_NAME)
+            });
+
+        // TODO: Show warning if database not found, since sled will make a new file?
+        PersistentDatabase::new(&location)
+    }?;
+
+    let config = {
+        // Use override from CLI or default.
+        let location = cli_configs
+            .value_of("config")
+            .map(|s| Path::new(s).to_path_buf())
+            .unwrap_or_else(|| {
+                dirs::home_dir()
+                    .unwrap()
+                    .join(EXPORTER_DATA_DIR)
+                    .join(CONFIG_FILE_NAME)
+            });
+
+        let file_contents = fs::read_to_string(location)
+            .context("could not find config file in specified location")?;
+
+        toml::from_str::<ExporterConfig>(&file_contents)
+    }?;
+
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
-    let client = RpcClient::new(config.rpc);
-    let geolocation_cache = GeoCache::new(config.database.tree(GEO_DB_CACHE_TREE_NAME)?);
+    let client = RpcClient::new(config.rpc.clone());
+    let geolocation_cache = GeoCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
@@ -152,7 +149,7 @@ async fn main() -> anyhow::Result<()> {
             .export_epoch_info(&epoch_info)
             .log_err("Failed to export epoch info metrics")?;
         gauges
-            .export_ip_addresses(&nodes, &vote_accounts, &config.api, &geolocation_cache)
+            .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &config)
             .await
             .log_err("Failed to export IP address info metrics")?;
         skipped_slots_monitor
