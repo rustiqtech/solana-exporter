@@ -257,7 +257,7 @@ impl PrometheusGauges {
             &geolocations.len()
         );
 
-        let mut uncached =
+        let (uncached_ok, uncached_err): (Vec<_>, Vec<_>) =
             futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
                 debug!(
                     "Contacting Maxmind for: {:?}",
@@ -280,7 +280,18 @@ impl PrometheusGauges {
             }))
             .await
             .into_iter()
-            .collect::<reqwest::Result<Vec<RpcInfoGeo>>>()?;
+            .collect::<Vec<reqwest::Result<RpcInfoGeo>>>()
+            .into_iter()
+            .partition(Result::is_ok);
+
+        let mut uncached = uncached_ok
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        for err in uncached_err {
+            eprintln!("{:?}", err);
+        }
 
         // Add API requested data into database
         for (contact, _, city) in &uncached {

@@ -20,14 +20,14 @@ use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
 use clap::{load_yaml, App};
-use log::{debug, error};
+use log::debug;
 use solana_client::rpc_client::RpcClient;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::{fmt::Debug, fs, time::Duration};
+use std::{fs, time::Duration};
 
 pub mod config;
 pub mod gauges;
@@ -40,21 +40,6 @@ pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
 
 /// Current version of `solana-exporter`
 pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Error result logger.
-trait LogErr {
-    /// Logs the error result.
-    fn log_err(self, msg: &str) -> Self;
-}
-
-impl<T, E: Debug> LogErr for Result<T, E> {
-    fn log_err(self, msg: &str) -> Self {
-        self.map_err(|e| {
-            error!("{}: {:?}", msg, e);
-            e
-        })
-    }
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -144,16 +129,16 @@ async fn main() -> anyhow::Result<()> {
 
         gauges
             .export_vote_accounts(&vote_accounts)
-            .log_err("Failed to export vote account metrics")?;
+            .context("Failed to export vote account metrics")?;
         gauges
             .export_epoch_info(&epoch_info)
-            .log_err("Failed to export epoch info metrics")?;
+            .context("Failed to export epoch info metrics")?;
         gauges
             .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &config)
             .await
-            .log_err("Failed to export IP address info metrics")?;
+            .context("Failed to export IP address info metrics")?;
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info)
-            .log_err("Failed to export skipped slots")?;
+            .context("Failed to export skipped slots")?;
     }
 }
