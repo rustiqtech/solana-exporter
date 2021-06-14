@@ -1,10 +1,10 @@
 [package]
 name = "geoip2-city"
 description = "Support for MaxMind's GeoIP2 City API"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Anson Cheung <git@anson-cheung.com>"]
 edition = "2018"
-repository = "https://github.com/vkomenda/solana-exporter"
+repository = "https://github.com/rustiqtech/solana-exporter/"
 license = "Apache-2.0"
 
 [dependencies]
