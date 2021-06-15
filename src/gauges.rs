@@ -3,10 +3,11 @@ use crate::geolocation::api::MAXMIND_CITY_URI;
 use crate::geolocation::caching::GeoCache;
 use crate::geolocation::get_rpc_contact_ip;
 use crate::geolocation::identifier::DatacenterIdentifier;
+use anyhow::anyhow;
 use anyhow::Context;
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
-use log::debug;
+use log::{debug, error};
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
     GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
@@ -289,8 +290,13 @@ impl PrometheusGauges {
             .map(Result::unwrap)
             .collect::<Vec<_>>();
 
+        let uncached_err = uncached_err
+            .into_iter()
+            .map(Result::unwrap_err)
+            .collect::<Vec<reqwest::Error>>();
+
         for err in uncached_err {
-            eprintln!("{:?}", err);
+            error!("{:?}", anyhow!(err));
         }
 
         // Add API requested data into database
