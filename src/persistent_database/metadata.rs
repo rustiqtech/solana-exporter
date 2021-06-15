@@ -1,5 +1,5 @@
 use crate::SOLANA_EXPORTER_VERSION;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use semver::Version;
 use std::str::FromStr;
 
@@ -25,11 +25,14 @@ impl Metadata {
     /// Returns the `solana-exporter` version that created this database.
     pub fn created_version(&self) -> anyhow::Result<Version> {
         self.tree
-            .get(CREATED_VERSION)?
+            .get(CREATED_VERSION)
+            .context("could not get created_version from database")?
             .map(|x| String::from_utf8(x.to_vec()))
-            .transpose()?
+            .transpose()
+            .context("created_version from database is not valid UTF-8")?
             .map(|x| Version::from_str(&x))
-            .transpose()?
+            .transpose()
+            .context("created_version from database is not valid semver")?
             .ok_or_else(|| anyhow!("no created_version in metadata"))
     }
 }
