@@ -20,7 +20,7 @@ use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
 use clap::{load_yaml, App};
-use log::debug;
+use log::{debug, warn};
 use solana_client::rpc_client::RpcClient;
 use std::collections::HashSet;
 use std::fs::File;
@@ -88,7 +88,11 @@ async fn main() -> anyhow::Result<()> {
                     .join(DATABASE_FILE_NAME)
             });
 
-        // TODO: Show warning if database not found, since sled will make a new file?
+        // Show warning if database not found, since sled will make a new file?
+        if !location.exists() {
+            warn!("Database could not found at specified location. A new one will be generated!")
+        }
+
         PersistentDatabase::new(&location)
     }?;
 
