@@ -1,3 +1,4 @@
+use anyhow::Context;
 use geoip2_city::CityApiResponse;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
@@ -23,20 +24,22 @@ impl GeoCache {
         ip_address: &IpAddr,
         info: &GeoInfo,
     ) -> anyhow::Result<Option<GeoInfo>> {
-        Ok(self
-            .db
-            .insert(bincode::serialize(ip_address)?, bincode::serialize(info)?)?
+        self.db
+            .insert(bincode::serialize(ip_address)?, bincode::serialize(info)?)
+            .context("could not insert into database")?
             .map(|x| bincode::deserialize(&x))
-            .transpose()?)
+            .transpose()
+            .context("could not deserialize the inserted GeoInfo")
     }
 
     /// Fetches the cached information about an IP address
     pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
-        Ok(self
-            .db
-            .get(bincode::serialize(ip_address)?)?
+        self.db
+            .get(bincode::serialize(ip_address)?)
+            .context("could not fetch from database")?
             .map(|x| bincode::deserialize(&x))
-            .transpose()?)
+            .transpose()
+            .context("could not deserialize the fetched GeoInfo")
     }
 
     /// Fetches the cached information about an IP address, after checking if will be invalidated.
@@ -51,7 +54,8 @@ impl GeoCache {
             Some(g) => {
                 if f(g.fetched_at) {
                     // ... but it is considered stale. Remove it.
-                    self.remove_ip_address(ip_address)?;
+                    self.remove_ip_address(ip_address)
+                        .context("could not remove stale IP address")?;
                     Ok(None)
                 } else {
                     // ... and it's fine to use!
@@ -65,11 +69,12 @@ impl GeoCache {
 
     /// Removes cached information about an IP address.
     pub fn remove_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
-        Ok(self
-            .db
-            .remove(bincode::serialize(ip_address)?)?
+        self.db
+            .remove(bincode::serialize(ip_address)?)
+            .context("could not remove IP address")?
             .map(|x| bincode::deserialize(&x))
-            .transpose()?)
+            .transpose()
+            .context("could not deserialize removed GeoInfo")
     }
 }
 
