@@ -146,10 +146,19 @@ and then put real values there.",
         gauges
             .export_epoch_info(&epoch_info)
             .context("Failed to export epoch info metrics")?;
-        gauges
-            .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &config)
-            .await
-            .context("Failed to export IP address info metrics")?;
+        if let Some(maxmind) = config.maxmind.clone() {
+            // If the MaxMind API is configured, submit queries for any uncached IPs.
+            gauges
+                .export_ip_addresses(
+                    &nodes,
+                    &vote_accounts,
+                    &geolocation_cache,
+                    &config.pubkey_whitelist,
+                    &maxmind,
+                )
+                .await
+                .context("Failed to export IP address info metrics")?;
+        }
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info)
             .context("Failed to export skipped slots")?;

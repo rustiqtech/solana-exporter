@@ -1,4 +1,5 @@
-use crate::config::ExporterConfig;
+use crate::config::Whitelist;
+use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::api::MAXMIND_CITY_URI;
 use crate::geolocation::caching::GeoCache;
 use crate::geolocation::get_rpc_contact_ip;
@@ -188,7 +189,8 @@ impl PrometheusGauges {
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
         cache: &GeoCache,
-        exporter_config: &ExporterConfig,
+        whitelist: &Whitelist,
+        maxmind: &MaxMindAPIKey,
     ) -> anyhow::Result<()> {
         // Define all types here
         type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
@@ -218,10 +220,10 @@ impl PrometheusGauges {
         };
 
         // If whitelist exists, remove all non-listed pubkeys
-        let validator_nodes = if !exporter_config.pubkey_whitelist.is_empty() {
+        let validator_nodes = if !whitelist.is_empty() {
             validator_nodes
                 .into_iter()
-                .filter(|(contact, _)| exporter_config.pubkey_whitelist.contains(&contact.pubkey))
+                .filter(|(contact, _)| whitelist.contains(&contact.pubkey))
                 .collect()
         } else {
             validator_nodes
@@ -258,56 +260,52 @@ impl PrometheusGauges {
             &geolocations.len()
         );
 
-        if let Some(maxmind) = exporter_config.maxmind.clone() {
-            // If the MaxMind API is configured, submit queries for any uncached IPs.
-            let (uncached_ok, uncached_err): (Vec<_>, Vec<_>) =
-                futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
-                    debug!(
-                        "Contacting Maxmind for: {:?}",
+        let (uncached_ok, uncached_err): (Vec<_>, Vec<_>) =
+            futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
+                debug!(
+                    "Contacting Maxmind for: {:?}",
+                    get_rpc_contact_ip(&contact).unwrap()
+                );
+
+                self.client
+                    .get(format!(
+                        "{}/{}",
+                        MAXMIND_CITY_URI,
                         get_rpc_contact_ip(&contact).unwrap()
-                    );
+                    ))
+                    .basic_auth(maxmind.username(), Some(maxmind.password()))
+                    .send()
+                    .and_then(|resp| resp.json::<CityApiResponse>())
+                    .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })
+            }))
+            .await
+            .into_iter()
+            .collect::<Vec<reqwest::Result<RpcInfoGeo>>>()
+            .into_iter()
+            .partition(Result::is_ok);
 
-                    self.client
-                        .get(format!(
-                            "{}/{}",
-                            MAXMIND_CITY_URI,
-                            get_rpc_contact_ip(&contact).unwrap()
-                        ))
-                        .basic_auth(maxmind.username(), Some(maxmind.password()))
-                        .send()
-                        .and_then(|resp| resp.json::<CityApiResponse>())
-                        .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })
-                }))
-                .await
-                .into_iter()
-                .collect::<Vec<reqwest::Result<RpcInfoGeo>>>()
-                .into_iter()
-                .partition(Result::is_ok);
+        let mut uncached = uncached_ok
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
 
-            let mut uncached = uncached_ok
-                .into_iter()
-                .map(Result::unwrap)
-                .collect::<Vec<_>>();
+        let uncached_err = uncached_err
+            .into_iter()
+            .map(Result::unwrap_err)
+            .collect::<Vec<reqwest::Error>>();
 
-            let uncached_err = uncached_err
-                .into_iter()
-                .map(Result::unwrap_err)
-                .collect::<Vec<reqwest::Error>>();
-
-            for err in uncached_err {
-                error!("{:?}", anyhow!(err));
-            }
-
-            // Add API requested data into database
-            for (contact, _, city) in &uncached {
-                cache
-                    .add_ip_address(&get_rpc_contact_ip(contact).unwrap(), &city.clone().into())?;
-                debug!("Caching into DB {:?}", get_rpc_contact_ip(contact).unwrap());
-            }
-
-            // Add API requested data into collection
-            geolocations.append(&mut uncached);
+        for err in uncached_err {
+            error!("{:?}", anyhow!(err));
         }
+
+        // Add API requested data into database
+        for (contact, _, city) in &uncached {
+            cache.add_ip_address(&get_rpc_contact_ip(contact).unwrap(), &city.clone().into())?;
+            debug!("Caching into DB {:?}", get_rpc_contact_ip(contact).unwrap());
+        }
+
+        // Add API requested data into collection
+        geolocations.append(&mut uncached);
 
         // Gauges
         let mut isp_staked: HashMap<String, u64> = HashMap::new();
