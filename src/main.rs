@@ -23,7 +23,7 @@ use clap::{load_yaml, App};
 use log::{debug, warn};
 use solana_client::rpc_client::RpcClient;
 use std::collections::HashSet;
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::net::SocketAddr;
 use std::path::Path;
@@ -67,6 +67,12 @@ async fn main() -> anyhow::Result<()> {
                         .join(EXPORTER_DATA_DIR)
                         .join(CONFIG_FILE_NAME)
                 });
+
+            // Only attempt to create .solana-exporter, if user specified location then don't try
+            // to create directories
+            if sc.value_of("output").is_none() {
+                create_dir_all(&location.parent().unwrap())?;
+            }
 
             let mut file = File::create(location)?;
             file.write_all(toml::to_string_pretty(&template_config)?.as_ref())?;
