@@ -108,8 +108,11 @@ async fn main() -> anyhow::Result<()> {
                     .join(CONFIG_FILE_NAME)
             });
 
-        let file_contents = fs::read_to_string(location)
-            .context("could not find config file in specified location")?;
+        let file_contents = fs::read_to_string(location).context(
+            "Could not find config file in specified location. \
+If running for the first time, run `solana-exporter generate` to initialise the config file \
+and then put real values there.",
+        )?;
 
         toml::from_str::<ExporterConfig>(&file_contents)
     }?;

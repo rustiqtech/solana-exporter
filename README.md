@@ -4,6 +4,26 @@ This is a Prometheus exporter for [Solana](https://github.com/solana-labs/solana
 on the [Golang original](https://github.com/certusone/solana_exporter) by CertusOne but now
 providing additional functionality. It is the basis for Grafana dashboards and status alerts.
 
+### Metrics
+
+The tool exports the following metrics:
+
+- `solana_active_validators`: Total number of active validators.
+- `solana_validator_delinquent`: Whether a validator is delinquent.
+- `solana_validator_activated_stake`: Activated stake of a validator.
+- `solana_validator_last_vote`: Last voted slot of a validator.
+- `solana_validator_root_slot`: The root slot of a validator.
+- `solana_transaction_count`: Total number of confirmed transactions since genesis.
+- `solana_slot_height`: Last confirmed slot height.
+- `solana_current_epoch`: Current epoch.
+- `solana_current_epoch_first_slot`: Current epoch's first slot.
+- `solana_current_epoch_last_slot`: Current epoch's last slot.
+- `solana_active_validators_isp_count`: ISP of active validators.
+- `solana_active_validators_isp_stake`: ISP of active validators grouped by stake.
+- `solana_active_validators_dc_stake`: Datacenter of active validators grouped by stake.
+- `solana_leader_slots`: Validated and skipped leader slots per validator.
+- `solana_skipped_slot_percent`: Skipped slot percentage per validator.
+
 ### Build
 
 * [Install Rust](https://www.rust-lang.org/tools/install)
@@ -28,13 +48,48 @@ ExecStart=/home/solana/.cargo/bin/solana-exporter
 WantedBy=multi-user.target
 ```
 
+### Prometheus and Grafana Setup
+
+Install Prometheus on the validator machine. Add the following snippet to the `scrape_configs`
+section of the `prometheus.yml` config file:
+
+```
+  - job_name: solana
+    static_configs:
+      - targets: ['localhost:9179']
+```
+
+Restart Prometheus. Now the `solana-exporter` metrics should be available to view at
+`http://localhost:9179/metrics`. It is highly advisable to only open the metrics ports to the
+Grafana machine. This can be achieved with `iptables`:
+
+```sh
+sudo iptables -A INPUT -p tcp -s <Grafana IP address> --dport 9179 -j ACCEPT
+sudo iptables -A INPUT -p tcp -s 0.0.0.0/0 --dport 9179 -j DROP
+```
+
+Note the order of commands. The `ACCEPT` clause should appear first in the output of
+```
+sudo iptables -L
+```
+and the `DROP` clause second. Similar clauses should be added for any other open Prometheus metrics
+port.
+
+When `solana-exporter` is used on a mainnet validator node, Grafana must always run on a different
+machine to circumvent potential DDoS attacks on the validator. In the Grafana dashboard, add the
+Prometheus data source `http://<Validator IP>:9090`. Then import the [default
+dashboard](./dashboards/rustiq.json) using that data source.
+
+To display pie charts we use a [Grafana pie chart
+plugin](https://grafana.com/grafana/plugins/grafana-piechart-panel/). Prior to Grafana v8 it needed
+to be installed in order for the pie charts to be displayed. Starting from v8 pie charts are
+included.
+
 ### Examples
 
 #### Dashboard
 
-A starting point can be our [default dashboard](./dashboards/rustiq.json).  To display pie charts we
-use a [Grafana pie chart plugin](https://grafana.com/grafana/plugins/grafana-piechart-panel/). It
-needs to be installed in order for the pie charts to be displayed.
+A starting point can be our [default dashboard](./dashboards/rustiq.json).
 
 #### Sample output to the Prometheus target endpoint
 
