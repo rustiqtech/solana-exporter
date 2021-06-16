@@ -35,14 +35,14 @@ By default `solana-exporter` takes input config from `~/.solana-exporter/config.
 exist it can be generated with template values. Here is a demo example of a config file that works with the public mainnet RPC server and doesn't require running a validator or opening a MaxMind account:
 ```
 rpc = 'https://api.mainnet-beta.solana.com/'
-target = '0.0.0.0:9179'
+target = '127.0.0.1:9179'
 pubkey_whitelist = []
 ```
 
 Here is a production config template for monitoring the entire network via the local validator RPC port and getting server location data from MaxMind:
 ```
 rpc = 'http://localhost:8899/'
-target = '0.0.0.0:9179'
+target = '127.0.0.1:9179'
 pubkey_whitelist = []
 
 [maxmind]
@@ -83,19 +83,33 @@ the following snippet to the `scrape_configs` section of the `prometheus.yml` co
 
 Restart Prometheus. Now the `solana-exporter` metrics should be available to view at
 `http://localhost:9179/metrics`. If running on the validator machine, it is highly advisable to only
-open the metrics ports to the Grafana machine. This can be achieved with `iptables`:
+open the metrics ports to the Grafana machine. This can be achieved with `nft`. Here is an example `/etc/nftables.conf`:
 
-```sh
-sudo iptables -A INPUT -p tcp -s <Grafana IP address> --dport 9179 -j ACCEPT
-sudo iptables -A INPUT -p tcp -s 0.0.0.0/0 --dport 9179 -j DROP
+```
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0;
+        # allow connection to Prometheus datasource only locally and from Grafana
+        ip saddr { 127.0.0.1, 193.111.199.108 } tcp dport 9090 accept
+        tcp dport 9090 drop
+        # allow connection to Prometheus exporter endpoints only internally
+        ip saddr != 127.0.0.1 tcp dport 9100 drop
+        ip saddr != 127.0.0.1 tcp dport 9179 drop
+    }
+    chain forward {
+        type filter hook forward priority 0;
+    }
+    chain output {
+        type filter hook output priority 0;
+    }
+}
 ```
 
-Note the order of commands. The `ACCEPT` clause should appear first in the output of
-```
-sudo iptables -L
-```
-and the `DROP` clause second. Similar clauses should be added for any other open Prometheus metrics
-port.
+Note the order of commands. An `accept` clause should appear before the corresponding `drop` clause.
 
 When `solana-exporter` is used on a mainnet validator node, Grafana must always run on a different
 machine to circumvent potential DDoS attacks on the validator. In the Grafana dashboard, add the
@@ -105,7 +119,7 @@ dashboard](./dashboards/rustiq.json) using that data source.
 To display pie charts we use a [Grafana pie chart
 plugin](https://grafana.com/grafana/plugins/grafana-piechart-panel/). Prior to Grafana v8 it needed
 to be installed in order for the pie charts to be displayed. Starting from v8 pie charts are
-included.
+included in the core distribution.
 
 ### Examples
 
