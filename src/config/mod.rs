@@ -11,8 +11,8 @@ pub struct ExporterConfig {
     pub rpc: String,
     /// Prometheus target socket address.
     pub target: SocketAddr,
-    /// Maxmind API
-    pub maxmind: MaxMindAPIKey,
     /// Whitelist addresses
     pub pubkey_whitelist: HashSet<String>,
+    /// Maxmind API
+    pub maxmind: MaxMindAPIKey,
 }
