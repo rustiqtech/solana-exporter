@@ -1,4 +1,14 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_MAIN_PROMETHEUS",
+      "label": "Main Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -248,7 +258,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -350,7 +360,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -452,7 +462,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -548,7 +558,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -641,7 +651,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -737,7 +747,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -831,7 +841,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -934,7 +944,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "datasource": "Prometheus",
+        "datasource": "${DS_MAIN_PROMETHEUS}",
         "definition": "label_values(solana_active_validators, service)",
         "description": null,
         "error": null,
