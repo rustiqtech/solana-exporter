@@ -29,6 +29,27 @@ The tool exports the following metrics:
 * [Install Rust](https://www.rust-lang.org/tools/install)
 * `cargo build --release` or `cargo install`
 
+### Setup
+
+By default `solana-exporter` takes input config from `~/.solana-exporter/config.toml`. If it doesn't
+exist it can be generated with template values. Here is a demo example of a config file that works with the public mainnet RPC server and doesn't require running a validator or opening a MaxMind account:
+```
+rpc = 'https://api.mainnet-beta.solana.com/'
+target = '0.0.0.0:9179'
+pubkey_whitelist = []
+```
+
+Here is a production config template for monitoring the entire network via the local validator RPC port and getting server location data from MaxMind:
+```
+rpc = 'http://localhost:8899/'
+target = '0.0.0.0:9179'
+pubkey_whitelist = []
+
+[maxmind]
+username = 'username'
+password = 'password'
+```
+
 ### Run
 
 Run this as a systemd service by a non-root user with a script like this one:
@@ -50,8 +71,9 @@ WantedBy=multi-user.target
 
 ### Prometheus and Grafana Setup
 
-Install Prometheus on the validator machine. Add the following snippet to the `scrape_configs`
-section of the `prometheus.yml` config file:
+If querying a public RPC port, `solana-exporter` can be run from anywhere, not necessarily from the
+validator machine. If querying a private RPC port, install Prometheus on the validator machine. Add
+the following snippet to the `scrape_configs` section of the `prometheus.yml` config file:
 
 ```
   - job_name: solana
@@ -60,8 +82,8 @@ section of the `prometheus.yml` config file:
 ```
 
 Restart Prometheus. Now the `solana-exporter` metrics should be available to view at
-`http://localhost:9179/metrics`. It is highly advisable to only open the metrics ports to the
-Grafana machine. This can be achieved with `iptables`:
+`http://localhost:9179/metrics`. If running on the validator machine, it is highly advisable to only
+open the metrics ports to the Grafana machine. This can be achieved with `iptables`:
 
 ```sh
 sudo iptables -A INPUT -p tcp -s <Grafana IP address> --dport 9179 -j ACCEPT

@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
             let template_config = ExporterConfig {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
-                maxmind: MaxMindAPIKey::new("username", "password"),
+                maxmind: Some(MaxMindAPIKey::new("username", "password")),
                 pubkey_whitelist: HashSet::default(),
             };
 

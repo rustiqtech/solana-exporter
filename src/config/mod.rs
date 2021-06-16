@@ -14,5 +14,5 @@ pub struct ExporterConfig {
     /// Whitelist addresses
     pub pubkey_whitelist: HashSet<String>,
     /// Maxmind API
-    pub maxmind: MaxMindAPIKey,
+    pub maxmind: Option<MaxMindAPIKey>,
 }
