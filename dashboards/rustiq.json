@@ -206,7 +206,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -308,7 +308,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -410,7 +410,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -506,7 +506,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -599,7 +599,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -695,7 +695,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -789,7 +789,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "$DS_MAIN_PROMETHEUS",
+      "datasource": "${DS_MAIN_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -892,7 +892,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "datasource": "$DS_MAIN_PROMETHEUS",
+        "datasource": "${DS_MAIN_PROMETHEUS}",
         "definition": "label_values(solana_active_validators, service)",
         "description": null,
         "error": null,
