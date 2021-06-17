@@ -1,5 +1,6 @@
 use crate::persistent_database::metadata::Metadata;
 use crate::SOLANA_EXPORTER_VERSION;
+use anyhow::Context;
 use log::warn;
 use std::path::Path;
 use std::str::FromStr;
@@ -7,7 +8,7 @@ use std::str::FromStr;
 pub mod metadata;
 
 /// Name of database name
-pub const DATABASE_NAME: &str = "persistent.db";
+pub const DATABASE_FILE_NAME: &str = "persistent.db";
 
 /// A persistent database used for storing data across `solana-exporter` runs.
 /// Note: The databases will be kept backwards-compatible according to semantic version for
@@ -20,8 +21,9 @@ pub struct PersistentDatabase {
 impl PersistentDatabase {
     /// Creates/opens a new persistent database in the path provided.
     pub fn new(dir: &Path) -> anyhow::Result<Self> {
-        let database = sled::open(dir.join(DATABASE_NAME))?;
-        let metadata = Metadata::new(database.open_tree("metadata")?)?;
+        let database = sled::open(dir).context("could not create caching database")?;
+        let metadata = Metadata::new(database.open_tree("metadata")?)
+            .context("could not read metadata from database")?;
 
         let created_version = metadata.created_version()?;
         let current_version = semver::Version::from_str(SOLANA_EXPORTER_VERSION)?;

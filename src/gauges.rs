@@ -1,11 +1,14 @@
-use crate::geolocation::api::{MaxMindAPIKey, MAXMIND_CITY_URI};
+use crate::config::Whitelist;
+use crate::geolocation::api::MaxMindAPIKey;
+use crate::geolocation::api::MAXMIND_CITY_URI;
 use crate::geolocation::caching::GeoCache;
 use crate::geolocation::get_rpc_contact_ip;
 use crate::geolocation::identifier::DatacenterIdentifier;
+use anyhow::anyhow;
 use anyhow::Context;
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
-use log::debug;
+use log::{debug, error};
 use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
     GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
@@ -185,8 +188,9 @@ impl PrometheusGauges {
         &self,
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
-        api_key: &MaxMindAPIKey,
         cache: &GeoCache,
+        whitelist: &Whitelist,
+        maxmind: &MaxMindAPIKey,
     ) -> anyhow::Result<()> {
         // Define all types here
         type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
@@ -213,6 +217,16 @@ impl PrometheusGauges {
                         .map(|vote| (contact, vote.clone()))
                 })
                 .collect::<Vec<RpcInfo>>()
+        };
+
+        // If whitelist exists, remove all non-listed pubkeys
+        let validator_nodes = if !whitelist.is_empty() {
+            validator_nodes
+                .into_iter()
+                .filter(|(contact, _)| whitelist.contains(&contact.pubkey))
+                .collect()
+        } else {
+            validator_nodes
         };
 
         // Separate cached data from uncached data
@@ -246,7 +260,7 @@ impl PrometheusGauges {
             &geolocations.len()
         );
 
-        let mut uncached =
+        let (uncached_ok, uncached_err): (Vec<_>, Vec<_>) =
             futures::future::join_all(uncached.into_iter().map(|(contact, vote, _)| {
                 debug!(
                     "Contacting Maxmind for: {:?}",
@@ -259,14 +273,30 @@ impl PrometheusGauges {
                         MAXMIND_CITY_URI,
                         get_rpc_contact_ip(&contact).unwrap()
                     ))
-                    .basic_auth(api_key.username(), Some(api_key.password()))
+                    .basic_auth(maxmind.username(), Some(maxmind.password()))
                     .send()
                     .and_then(|resp| resp.json::<CityApiResponse>())
                     .and_then(|json: CityApiResponse| async { Ok((contact, vote, json)) })
             }))
             .await
             .into_iter()
-            .collect::<reqwest::Result<Vec<RpcInfoGeo>>>()?;
+            .collect::<Vec<reqwest::Result<RpcInfoGeo>>>()
+            .into_iter()
+            .partition(Result::is_ok);
+
+        let mut uncached = uncached_ok
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+
+        let uncached_err = uncached_err
+            .into_iter()
+            .map(Result::unwrap_err)
+            .collect::<Vec<reqwest::Error>>();
+
+        for err in uncached_err {
+            error!("{:?}", anyhow!(err));
+        }
 
         // Add API requested data into database
         for (contact, _, city) in &uncached {

@@ -86,7 +86,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
 
         let mut confirmed_blocks = self
             .client
-            .get_confirmed_blocks(abs_range_start, Some(abs_range_end))?;
+            .get_blocks(abs_range_start, Some(abs_range_end))?;
         confirmed_blocks.sort_unstable();
         debug!(
             "Confirmed blocks from {} to {}: {:?}",
