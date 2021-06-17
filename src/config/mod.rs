@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 
+pub type Whitelist = HashSet<String>;
+
 pub const CONFIG_FILE_NAME: &str = "config.toml";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -12,7 +14,7 @@ pub struct ExporterConfig {
     /// Prometheus target socket address.
     pub target: SocketAddr,
     /// Whitelist addresses
-    pub pubkey_whitelist: HashSet<String>,
+    pub pubkey_whitelist: Whitelist,
     /// Maxmind API
-    pub maxmind: MaxMindAPIKey,
+    pub maxmind: Option<MaxMindAPIKey>,
 }

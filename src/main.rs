@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
             let template_config = ExporterConfig {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
-                maxmind: MaxMindAPIKey::new("username", "password"),
+                maxmind: Some(MaxMindAPIKey::new("username", "password")),
                 pubkey_whitelist: HashSet::default(),
             };
 
@@ -114,8 +114,11 @@ async fn main() -> anyhow::Result<()> {
                     .join(CONFIG_FILE_NAME)
             });
 
-        let file_contents = fs::read_to_string(location)
-            .context("could not find config file in specified location")?;
+        let file_contents = fs::read_to_string(location).context(
+            "Could not find config file in specified location. \
+If running for the first time, run `solana-exporter generate` to initialise the config file \
+and then put real values there.",
+        )?;
 
         toml::from_str::<ExporterConfig>(&file_contents)
     }?;
@@ -143,10 +146,19 @@ async fn main() -> anyhow::Result<()> {
         gauges
             .export_epoch_info(&epoch_info)
             .context("Failed to export epoch info metrics")?;
-        gauges
-            .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &config)
-            .await
-            .context("Failed to export IP address info metrics")?;
+        if let Some(maxmind) = config.maxmind.clone() {
+            // If the MaxMind API is configured, submit queries for any uncached IPs.
+            gauges
+                .export_ip_addresses(
+                    &nodes,
+                    &vote_accounts,
+                    &geolocation_cache,
+                    &config.pubkey_whitelist,
+                    &maxmind,
+                )
+                .await
+                .context("Failed to export IP address info metrics")?;
+        }
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info)
             .context("Failed to export skipped slots")?;
