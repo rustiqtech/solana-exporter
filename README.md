@@ -83,7 +83,8 @@ the following snippet to the `scrape_configs` section of the `prometheus.yml` co
 
 Restart Prometheus. Now the `solana-exporter` metrics should be available to view at
 `http://localhost:9179/metrics`. If running on the validator machine, it is highly advisable to only
-open the metrics ports to the Grafana machine. This can be achieved with `nft`. Here is an example `/etc/nftables.conf`:
+open the Prometheus datasource port to the Grafana machine. This can be achieved with `nft`. Here is
+an example `/etc/nftables.conf`:
 
 ```
 #!/usr/sbin/nft -f
@@ -94,7 +95,7 @@ table inet filter {
     chain input {
         type filter hook input priority 0;
         # allow connection to Prometheus datasource only locally and from Grafana
-        ip saddr { 127.0.0.1, 193.111.199.108 } tcp dport 9090 accept
+        ip saddr { 127.0.0.1, <Grafana IP> } tcp dport 9090 accept
         tcp dport 9090 drop
         # allow connection to Prometheus exporter endpoints only internally
         ip saddr != 127.0.0.1 tcp dport 9100 drop
