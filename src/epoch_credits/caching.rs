@@ -1,7 +1,7 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Name of the caching database.
 pub const CREDIT_DB_CACHE_TREE_NAME: &str = "epoch_credit_cache";
@@ -66,7 +66,7 @@ impl EpochCreditCache {
 /// The value (in key-value) for the epoch credit caching database.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CreditHistory {
-    history: HashMap<Epoch, CreditsInfo>,
+    history: BTreeMap<Epoch, CreditsInfo>,
 }
 
 /// Credit information about a pubkey at a particular epoch.
