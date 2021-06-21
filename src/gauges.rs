@@ -1,7 +1,7 @@
 use crate::config::Whitelist;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::api::MAXMIND_CITY_URI;
-use crate::geolocation::caching::GeoCache;
+use crate::geolocation::caching::GeolocationCache;
 use crate::geolocation::get_rpc_contact_ip;
 use crate::geolocation::identifier::DatacenterIdentifier;
 use anyhow::anyhow;
@@ -188,7 +188,7 @@ impl PrometheusGauges {
         &self,
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
-        cache: &GeoCache,
+        cache: &GeolocationCache,
         whitelist: &Whitelist,
         maxmind: &MaxMindAPIKey,
     ) -> anyhow::Result<()> {

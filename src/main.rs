@@ -15,7 +15,7 @@
 use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
-use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
+use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
@@ -30,6 +30,7 @@ use std::path::Path;
 use std::{fs, time::Duration};
 
 pub mod config;
+pub mod epoch_credits;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
@@ -126,7 +127,8 @@ and then put real values there.",
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc.clone());
-    let geolocation_cache = GeoCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
+    let geolocation_cache =
+        GeolocationCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
