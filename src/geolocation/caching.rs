@@ -8,11 +8,11 @@ use time::{Date, OffsetDateTime};
 pub const GEO_DB_CACHE_TREE_NAME: &str = "geolocation_cache";
 
 /// A caching database for geolocation information fetched from MaxMind.
-pub struct GeoCache {
+pub struct GeolocationCache {
     db: sled::Tree,
 }
 
-impl GeoCache {
+impl GeolocationCache {
     /// Creates a new cache with the name stored in `GEO_DB_CACHE_NAME`.
     pub fn new(tree: sled::Tree) -> Self {
         Self { db: tree }
