@@ -18,7 +18,8 @@ impl GeolocationCache {
         Self { db: tree }
     }
 
-    /// Adds an IP address and its corresponding information to the database
+    /// Adds an IP address and its corresponding information to the database. Returns the previously
+    /// inserted value, if it exists.
     pub fn add_ip_address(
         &self,
         ip_address: &IpAddr,
@@ -29,10 +30,10 @@ impl GeolocationCache {
             .context("could not insert into database")?
             .map(|x| bincode::deserialize(&x))
             .transpose()
-            .context("could not deserialize the inserted GeoInfo")
+            .context("could not deserialize the previously inserted GeoInfo")
     }
 
-    /// Fetches the cached information about an IP address
+    /// Fetches the cached information about an IP address.
     pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
         self.db
             .get(bincode::serialize(ip_address)?)
@@ -78,7 +79,7 @@ impl GeolocationCache {
     }
 }
 
-/// The value (in key-value) for the caching database, consisting of the structured response
+/// The value (in key-value) for the geolocation caching database, consisting of the structured response
 /// from the API alongside metadata such as when the data was fetched.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeoInfo {
