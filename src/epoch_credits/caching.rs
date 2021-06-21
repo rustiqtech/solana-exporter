@@ -66,7 +66,7 @@ impl EpochCreditCache {
 /// The value (in key-value) for the epoch credit caching database.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CreditHistory {
-    history: BTreeMap<Epoch, CreditsInfo>,
+    pub history: BTreeMap<Epoch, CreditsInfo>,
 }
 
 /// Credit information about a pubkey at a particular epoch.
