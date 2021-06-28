@@ -16,7 +16,7 @@ pub fn get_rewards_for_epoch(epoch: Epoch, client: &RpcClient) -> anyhow::Result
 
     // We cannot use an excessively large range if the epoch just started. There is a chance that
     // the end slot has not been reached and strange behaviour will occur.
-    // If this is the current epoch and less than 10 slots have elapsed, then do not define an
+    // If this is the current epoch and less than `SLOT_OFFSET` slots have elapsed, then do not define an
     // end_slot for use in the RPC call.
     let end_slot = if info.epoch == epoch && info.slot_index < SLOT_OFFSET {
         None
