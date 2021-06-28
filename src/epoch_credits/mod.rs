@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::clock::Epoch;
-use solana_sdk::epoch_info::EpochInfo;
 use solana_transaction_status::Rewards;
 
 pub mod caching;
@@ -30,7 +29,7 @@ pub fn get_rewards_for_epoch(epoch: Epoch, client: &RpcClient) -> anyhow::Result
         .get_blocks(start_slot, end_slot)?
         .get(0)
         .cloned()
-        .ok_or(anyhow!("no blocks found"))?;
+        .ok_or_else(|| anyhow!("no blocks found"))?;
 
     Ok(client.get_block(block)?.rewards)
 }
