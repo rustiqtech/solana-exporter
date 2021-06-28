@@ -8,13 +8,13 @@ pub const CREDIT_DB_CACHE_TREE_NAME: &str = "epoch_credit_cache";
 
 /// A caching database for vote accounts' credit growth
 pub struct EpochCreditCache {
-    db: sled::Tree,
+    tree: sled::Tree,
 }
 
 impl EpochCreditCache {
     /// Creates a new cache using a tree.
     pub fn new(tree: sled::Tree) -> Self {
-        Self { db: tree }
+        Self { tree }
     }
 
     /// Adds a set of a vote pubkey's epoch credits to the caching database. Returns the current
@@ -40,7 +40,7 @@ impl EpochCreditCache {
 
     /// Gets a vote pubkey's credit history.
     pub fn get_credit_history(&self, vote_pubkey: &str) -> anyhow::Result<Option<CreditHistory>> {
-        self.db
+        self.tree
             .get(vote_pubkey)
             .context("could not fetch from database")?
             .map(|x| bincode::deserialize(&x))
@@ -54,7 +54,7 @@ impl EpochCreditCache {
         vote_pubkey: &str,
         credit_history: &CreditHistory,
     ) -> anyhow::Result<Option<CreditHistory>> {
-        self.db
+        self.tree
             .insert(vote_pubkey, bincode::serialize(credit_history)?)
             .context("could not insert into database")?
             .map(|x| bincode::deserialize(&x))
