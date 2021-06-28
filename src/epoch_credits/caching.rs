@@ -3,6 +3,7 @@ use crate::persistent_database::metadata::Metadata;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;
+use solana_transaction_status::Reward;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Name of the caching database.
@@ -20,26 +21,19 @@ impl<'a> EpochCreditCache<'a> {
         Self { tree, metadata }
     }
 
-    /// Adds a set of a vote pubkey's epoch credits to the caching database. Returns the current
-    /// set of credit history (after insertion).
-    // TODO: Refactor this to accept input forall in one epoch
-    pub fn add_epoch(
-        &self,
-        vote_pubkey: &str,
-        epoch_credits: &[(Epoch, u64, u64)],
-    ) -> anyhow::Result<CreditHistory> {
-        let mut content = self.get_credit_history(vote_pubkey)?.unwrap_or_default();
-
-        for (epoch, credits, prev_credits) in epoch_credits {
-            let credits_info = CreditsInfo::new(*credits, *prev_credits);
-            // Make sure we do not over-write an existing key.
-            content.history.entry(*epoch).or_insert(credits_info);
+    /// Adds a set of rewards of an epoch
+    pub fn add_epoch_rewards(&self, epoch: Epoch, rewards: &[Reward]) -> anyhow::Result<()> {
+        for reward in rewards {
+            let mut content = self.get_credit_history(&reward.pubkey)?.unwrap_or_default();
+            let credits_info = CreditsInfo::new(reward.lamports, reward.post_balance);
+            content.history.entry(epoch).or_insert(credits_info);
+            let _ = self.write_credit_history(&reward.pubkey, &content)?;
         }
 
-        // Drop the old value
-        let _ = self.write_credit_history(vote_pubkey, &content)?;
+        // Add to seen epochs
+        self.add_epoch_metadata(epoch)?;
 
-        Ok(content)
+        Ok(())
     }
 
     /// Gets a vote pubkey's credit history.
@@ -79,7 +73,7 @@ impl<'a> EpochCreditCache<'a> {
 
     /// Adds one epoch to the list of epochs for which the database has records of. Returns the
     /// previous set of seen epochs (before insertion).
-    fn add_epoch_history(&self, epoch: Epoch) -> anyhow::Result<Option<EpochCreditCacheMetadata>> {
+    fn add_epoch_metadata(&self, epoch: Epoch) -> anyhow::Result<Option<EpochCreditCacheMetadata>> {
         let mut metadata = self
             .metadata
             .get_metadata::<EpochCreditCacheMetadata>(CREDIT_DB_CACHE_TREE_NAME)?
@@ -101,16 +95,16 @@ pub struct CreditHistory {
 /// Credit information about a pubkey at a particular epoch.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CreditsInfo {
-    credits: u64,
-    prev_credits: u64,
+    reward: i64,
+    post_balance: u64,
 }
 
 impl CreditsInfo {
     /// Creates a new `CreditInfo`.
-    pub fn new(credits: u64, prev_credits: u64) -> Self {
+    pub fn new(reward: i64, post_balance: u64) -> Self {
         CreditsInfo {
-            credits,
-            prev_credits,
+            reward,
+            post_balance,
         }
     }
 }
