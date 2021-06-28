@@ -1,24 +1,28 @@
+use crate::epoch_credits::caching_metadata::EpochCreditCacheMetadata;
+use crate::persistent_database::metadata::Metadata;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Name of the caching database.
 pub const CREDIT_DB_CACHE_TREE_NAME: &str = "epoch_credit_cache";
 
 /// A caching database for vote accounts' credit growth
-pub struct EpochCreditCache {
+pub struct EpochCreditCache<'a> {
     tree: sled::Tree,
+    metadata: &'a Metadata,
 }
 
-impl EpochCreditCache {
+impl<'a> EpochCreditCache<'a> {
     /// Creates a new cache using a tree.
-    pub fn new(tree: sled::Tree) -> Self {
-        Self { tree }
+    pub fn new(tree: sled::Tree, metadata: &'a Metadata) -> Self {
+        Self { tree, metadata }
     }
 
     /// Adds a set of a vote pubkey's epoch credits to the caching database. Returns the current
-    /// set of credit history.
+    /// set of credit history (after insertion).
+    // TODO: Refactor this to accept input forall in one epoch
     pub fn add_epoch(
         &self,
         vote_pubkey: &str,
@@ -48,7 +52,18 @@ impl EpochCreditCache {
             .context("could not deserialize the fetched credit_history")
     }
 
-    /// Write a key-value pair to the database. Returns the previously inserted value, if it exists.
+    /// Returns a list of all the epochs for which the database has records of. If the metadata
+    /// tree has no record, it is assumed that no epochs have been seen.
+    pub fn get_seen_epochs(&self) -> anyhow::Result<BTreeSet<Epoch>> {
+        Ok(self
+            .metadata
+            .get_metadata::<EpochCreditCacheMetadata>(CREDIT_DB_CACHE_TREE_NAME)?
+            .unwrap_or_default()
+            .seen_epochs()
+            .clone())
+    }
+
+    /// Write a key-value pair to the database. Returns the previously inserted value.
     fn write_credit_history(
         &self,
         vote_pubkey: &str,
@@ -60,6 +75,20 @@ impl EpochCreditCache {
             .map(|x| bincode::deserialize(&x))
             .transpose()
             .context("could not deserialize the previously inserted credit_history")
+    }
+
+    /// Adds one epoch to the list of epochs for which the database has records of. Returns the
+    /// previous set of seen epochs (before insertion).
+    fn add_epoch_history(&self, epoch: Epoch) -> anyhow::Result<Option<EpochCreditCacheMetadata>> {
+        let mut metadata = self
+            .metadata
+            .get_metadata::<EpochCreditCacheMetadata>(CREDIT_DB_CACHE_TREE_NAME)?
+            .unwrap_or_default();
+
+        metadata.insert_epoch(epoch);
+
+        self.metadata
+            .set_metadata(CREDIT_DB_CACHE_TREE_NAME, &metadata)
     }
 }
 
