@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use prometheus_exporter::prometheus::GaugeVec;
 use solana_client::rpc_client::RpcClient;
-//use solana_program::
 use solana_runtime::bank::RewardType;
 use solana_sdk::{
     clock::Epoch, epoch_info::EpochInfo, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey,

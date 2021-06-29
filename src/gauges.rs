@@ -129,7 +129,7 @@ impl PrometheusGauges {
             .unwrap(),
             staking_apy: register_gauge_vec!(
                 "solana_staking_apy",
-                "Staking APY per validator",
+                "Staking APY per validator in percent",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
