@@ -2800,6 +2800,7 @@ dependencies = [
  "solana-client",
  "solana-runtime",
  "solana-sdk",
+ "solana-stake-program",
  "solana-transaction-status",
  "time 0.2.27",
  "tokio 1.6.2",

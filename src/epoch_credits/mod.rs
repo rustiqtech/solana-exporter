@@ -1,12 +1,14 @@
 use anyhow::anyhow;
 use prometheus_exporter::prometheus::GaugeVec;
 use solana_client::rpc_client::RpcClient;
+//use solana_program::
 use solana_runtime::bank::RewardType;
 use solana_sdk::{
     clock::Epoch, epoch_info::EpochInfo, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey,
 };
+use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, convert::TryFrom, u64};
 
 pub mod caching;
 pub mod caching_metadata;
@@ -60,7 +62,11 @@ impl<'a> RewardsMonitor<'a> {
             return Ok(());
         }
         if let Some(rewards) = self.get_rewards_for_epoch(epoch, Some(epoch_info.clone()))? {
-            let (staking_apys, validator_rewards) = self.process_rewards(rewards);
+            // FIXME: replace 3.0 with the previous epoch duration when using only one epoch, and
+            // with the average of all used epochs if using several.
+            let epochs_in_year = 365.0 / 3.0;
+            let (staking_apys, validator_rewards) =
+                self.process_rewards(rewards, epochs_in_year)?;
 
             for s in staking_apys {
                 self.staking_apys
@@ -80,8 +86,12 @@ impl<'a> RewardsMonitor<'a> {
     }
 
     /// Splits rewards into reward type categories and does post-processing.
-    fn process_rewards(&self, rewards: Rewards) -> (Vec<StakingApy>, Vec<ValidatorReward>) {
-        //        let mut staking_apy_seen_vote_accs = BTreeSet::new();
+    fn process_rewards(
+        &self,
+        rewards: Rewards,
+        epochs_in_year: f64,
+    ) -> anyhow::Result<(Vec<StakingApy>, Vec<ValidatorReward>)> {
+        let mut staking_seen_voters = BTreeSet::new();
         let mut staking_apys = Vec::new();
         let mut validator_rewards = Vec::new();
 
@@ -93,7 +103,28 @@ impl<'a> RewardsMonitor<'a> {
         } in rewards
         {
             match reward_type {
-                Some(RewardType::Staking) => (), // TODO
+                Some(RewardType::Staking) => {
+                    let account_info = self
+                        .client
+                        .get_account(&Pubkey::try_from(pubkey.as_ref())?)?;
+                    let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
+                    if let Some(delegation) = stake_state.delegation() {
+                        let voter = format!("{}", delegation.voter_pubkey);
+                        if !staking_seen_voters.contains(&voter) && lamports > 0 {
+                            let lamports = lamports as u64;
+                            let prev_balance = post_balance - lamports;
+                            let epoch_rate = lamports as f64 / prev_balance as f64;
+                            let apy = 100.0
+                                * (f64::powf(1.0 + epoch_rate / epochs_in_year, epochs_in_year)
+                                    - 1.0);
+                            staking_apys.push(StakingApy {
+                                voter: voter.clone(),
+                                percent: apy,
+                            });
+                            staking_seen_voters.insert(voter);
+                        }
+                    }
+                }
                 Some(RewardType::Voting) => validator_rewards.push(ValidatorReward {
                     voter: pubkey,
                     lamports: post_balance,
@@ -101,7 +132,7 @@ impl<'a> RewardsMonitor<'a> {
                 _ => (), // TODO other reward types
             }
         }
-        (staking_apys, validator_rewards)
+        Ok((staking_apys, validator_rewards))
     }
 
     /// Gets the rewards for `epoch` optionally given `epoch_info`. Returns `Ok(None)` if there
@@ -132,7 +163,7 @@ impl<'a> RewardsMonitor<'a> {
             .client
             .get_blocks(start_slot, end_slot)?
             .get(0)
-            .map(|b| b.clone());
+            .cloned();
 
         if let Some(block) = block {
             Ok(Some(self.client.get_block(block)?.rewards))
