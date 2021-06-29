@@ -2798,6 +2798,7 @@ dependencies = [
  "serde",
  "sled",
  "solana-client",
+ "solana-runtime",
  "solana-sdk",
  "solana-transaction-status",
  "time 0.2.27",

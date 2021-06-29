@@ -39,6 +39,8 @@ pub struct PrometheusGauges {
     pub dc_by_stake: IntGaugeVec,
     pub leader_slots: IntCounterVec,
     pub skipped_slot_percent: GaugeVec,
+    pub staking_apy: GaugeVec,
+    pub validator_rewards: GaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -122,6 +124,18 @@ impl PrometheusGauges {
             skipped_slot_percent: register_gauge_vec!(
                 "solana_skipped_slot_percent",
                 "Skipped slot percentage per validator",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            staking_apy: register_gauge_vec!(
+                "solana_staking_apy",
+                "Staking APY per validator",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            validator_rewards: register_gauge_vec!(
+                "solana_validator_rewards",
+                "Cumulative validator rewards in SOL",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),

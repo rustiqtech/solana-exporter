@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
+use crate::epoch_credits::RewardsMonitor;
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
@@ -132,6 +133,8 @@ and then put real values there.",
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
+    let mut rewards_monitor =
+        RewardsMonitor::new(&client, &gauges.staking_apy, &gauges.validator_rewards);
 
     loop {
         let _guard = exporter.wait_duration(duration);
@@ -164,5 +167,8 @@ and then put real values there.",
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info)
             .context("Failed to export skipped slots")?;
+        rewards_monitor
+            .export_rewards(&epoch_info)
+            .context("Failed to export staking apy")?;
     }
 }
