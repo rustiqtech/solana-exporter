@@ -169,6 +169,6 @@ and then put real values there.",
             .context("Failed to export skipped slots")?;
         rewards_monitor
             .export_rewards(&epoch_info)
-            .context("Failed to export staking apy")?;
+            .context("Failed to export rewards")?;
     }
 }
