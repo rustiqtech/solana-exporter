@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
-use crate::epoch_credits::RewardsMonitor;
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
+use crate::rewards::RewardsMonitor;
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
 use clap::{load_yaml, App};
@@ -31,10 +31,10 @@ use std::path::Path;
 use std::{fs, time::Duration};
 
 pub mod config;
-pub mod epoch_credits;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
+pub mod rewards;
 pub mod slots;
 
 /// Name of directory where solana-exporter will store information
