@@ -40,7 +40,7 @@ pub struct PrometheusGauges {
     pub leader_slots: IntCounterVec,
     pub skipped_slot_percent: GaugeVec,
     pub staking_apy: GaugeVec,
-    pub validator_rewards: GaugeVec,
+    pub validator_rewards: IntGaugeVec,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -133,9 +133,9 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
-            validator_rewards: register_gauge_vec!(
+            validator_rewards: register_int_gauge_vec!(
                 "solana_validator_rewards",
-                "Cumulative validator rewards in SOL",
+                "Cumulative validator rewards in lamports",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
