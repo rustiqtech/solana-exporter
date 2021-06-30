@@ -1,3 +1,4 @@
+use crate::rewards::caching::RewardsCache;
 use anyhow::anyhow;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use solana_client::rpc_client::RpcClient;
@@ -30,10 +31,8 @@ pub struct RewardsMonitor<'a> {
     staking_apys: &'a GaugeVec,
     /// Prometheus cumulative validator rewards gauge.
     validator_rewards: &'a IntGaugeVec,
-    /// The last epoch in which rewards were recorded. 0 if uninitialised.
-    ///
-    /// FIXME: cached epoch credit history.
-    last_rewards_epoch: Epoch,
+    /// Caching database for rewards
+    cache: &'a RewardsCache<'a>, // NOTE: use get_seen_epochs() for "last_rewards_epoch".
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -42,25 +41,28 @@ impl<'a> RewardsMonitor<'a> {
         client: &'a RpcClient,
         staking_apys: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
+        rewards_cache: &'a RewardsCache<'a>,
     ) -> Self {
         Self {
             client,
             staking_apys,
             validator_rewards,
-            last_rewards_epoch: 0,
+            cache: rewards_cache,
         }
     }
 
     /// Exports reward metrics once an epoch.
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
-        // FIXME: check seen epochs in the cache.
-        if epoch <= self.last_rewards_epoch {
+        // FIXME: do not skip calculations if epoch is in database!
+        if epoch <= self.cache.get_last_seen_epoch()?.unwrap_or(0) {
             return Ok(());
         }
         if let Some(rewards) = self.get_rewards_for_epoch(epoch, epoch_info.clone())? {
-            // FIXME: replace 3.0 with the previous epoch duration when using only one epoch, and
-            // with the average of all used epochs if using several.
+            // Add epoch rewards to database
+            self.cache.add_epoch_rewards(epoch, &rewards)?;
+
+            // FIXME: replace 3.0 with the previous epoch duration when using only one epoch, and with the average of all used epochs if using several.
             let epochs_in_year = 365.0 / 3.0;
             let (staking_apys, validator_rewards) =
                 self.process_rewards(rewards, epochs_in_year)?;
@@ -76,13 +78,12 @@ impl<'a> RewardsMonitor<'a> {
                     .get_metric_with_label_values(&[&v.voter])
                     .map(|c| c.set(v.lamports as i64))?;
             }
-            // FIXME: add to seen epochs in the cache.
-            self.last_rewards_epoch = epoch;
         }
         Ok(())
     }
 
     /// Splits rewards into reward type categories and does post-processing.
+    // FIXME: Make this work across multiple epochs, potentially grabbing data from the cache.
     fn process_rewards(
         &self,
         rewards: Rewards,
@@ -101,11 +102,13 @@ impl<'a> RewardsMonitor<'a> {
         {
             match reward_type {
                 Some(RewardType::Staking) => {
+                    // TODO: Get this to use get_multiple_accounts
                     let account_info = self.client.get_account(&pubkey.as_str().try_into()?)?;
                     let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
                     if let Some(delegation) = stake_state.delegation() {
                         let voter = format!("{}", delegation.voter_pubkey);
                         if !staking_seen_voters.contains(&voter) && lamports > 0 {
+                            // TODO: Figure out what needs to be stored in the cache such that APY calculations can be reconstructed easily
                             let lamports = lamports as u64;
                             let prev_balance = post_balance - lamports;
                             let epoch_rate = lamports as f64 / prev_balance as f64;
@@ -120,6 +123,7 @@ impl<'a> RewardsMonitor<'a> {
                         }
                     }
                 }
+                // This does not need to be cached - it is already in Rewards.
                 Some(RewardType::Voting) => validator_rewards.push(ValidatorReward {
                     voter: pubkey,
                     lamports: post_balance,
