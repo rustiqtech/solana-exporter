@@ -1,5 +1,5 @@
-use crate::epoch_credits::caching_metadata::EpochCreditCacheMetadata;
 use crate::persistent_database::metadata::Metadata;
+use crate::rewards::caching_metadata::EpochCreditCacheMetadata;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;

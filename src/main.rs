@@ -17,6 +17,7 @@ use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
+use crate::rewards::RewardsMonitor;
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
 use clap::{load_yaml, App};
@@ -30,10 +31,10 @@ use std::path::Path;
 use std::{fs, time::Duration};
 
 pub mod config;
-pub mod epoch_credits;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
+pub mod rewards;
 pub mod slots;
 
 /// Name of directory where solana-exporter will store information
@@ -132,6 +133,8 @@ and then put real values there.",
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
+    let mut rewards_monitor =
+        RewardsMonitor::new(&client, &gauges.staking_apy, &gauges.validator_rewards);
 
     loop {
         let _guard = exporter.wait_duration(duration);
@@ -164,5 +167,8 @@ and then put real values there.",
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info)
             .context("Failed to export skipped slots")?;
+        rewards_monitor
+            .export_rewards(&epoch_info)
+            .context("Failed to export rewards")?;
     }
 }
