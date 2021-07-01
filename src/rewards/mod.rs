@@ -4,7 +4,7 @@ use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use solana_client::rpc_client::RpcClient;
 use solana_runtime::bank::RewardType;
-use solana_sdk::{clock::Epoch, epoch_info::EpochInfo};
+use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
 use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
 use std::{collections::BTreeSet, convert::TryInto, u64};
@@ -63,10 +63,11 @@ impl<'a> RewardsMonitor<'a> {
             // Add epoch rewards to database
             self.cache.add_epoch_rewards(epoch, &rewards)?;
 
-            // FIXME: replace 3.0 with the previous epoch duration when using only one epoch, and with the average of all used epochs if using several.
-            let epochs_in_year = 365.0 / 3.0;
+            // FIXME: replace the constant with the previous epoch duration when using only one
+            // epoch, and with the average of all used epochs if using several.
+            let epoch_duration = 2.5;
             let (staking_apys, validator_rewards) =
-                self.process_rewards(rewards, epochs_in_year)?;
+                self.process_rewards(rewards, epoch_duration)?;
 
             for s in staking_apys {
                 self.staking_apys
@@ -88,7 +89,7 @@ impl<'a> RewardsMonitor<'a> {
     fn process_rewards(
         &self,
         rewards: Rewards,
-        epochs_in_year: f64,
+        epoch_duration: f64,
     ) -> anyhow::Result<(Vec<StakingApy>, Vec<ValidatorReward>)> {
         debug!("Processing rewards");
         let mut staking_seen_voters = BTreeSet::new();
@@ -107,10 +108,12 @@ impl<'a> RewardsMonitor<'a> {
             .collect();
 
         for chunk in staking_rewards.chunks(100) {
-            let pubkeys: Vec<_> = chunk
+            let pubkeys_rewards: Vec<(Pubkey, &Reward)> = chunk
                 .iter()
-                .filter_map(|r| r.pubkey.as_str().try_into().ok())
+                .zip(chunk.iter())
+                .filter_map(|(r, r0)| r.pubkey.as_str().try_into().map(|p| (p, r0)).ok())
                 .collect();
+            let pubkeys: Vec<_> = pubkeys_rewards.iter().map(|e| e.0).collect();
             let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
 
             for (
@@ -131,16 +134,18 @@ impl<'a> RewardsMonitor<'a> {
                             let lamports = *lamports as u64;
                             let prev_balance = post_balance - lamports;
                             let epoch_rate = lamports as f64 / prev_balance as f64;
-                            let apy = 100.0
-                                * (f64::powf(1.0 + epoch_rate / epochs_in_year, epochs_in_year)
-                                    - 1.0);
+                            let apr = epoch_rate / epoch_duration * 365.0;
+                            let epochs_in_year = 365.0 / epoch_duration;
+                            let apy = f64::powf(1.0 + apr / epochs_in_year, epochs_in_year) - 1.0;
                             debug!(
-                                "Staking APY of {} is {} with epoch rate {}",
-                                voter, apy, epoch_rate
+                                "Staking APY of {} is {:.4} (APR {:.4})",
+                                voter,
+                                apy * 100.0,
+                                apr * 100.0
                             );
                             staking_apys.push(StakingApy {
                                 voter: voter.clone(),
-                                percent: apy,
+                                percent: apy * 100.0,
                             });
                             staking_seen_voters.insert(voter);
                         }
