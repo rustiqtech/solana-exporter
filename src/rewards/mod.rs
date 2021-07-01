@@ -120,7 +120,7 @@ impl<'a> RewardsMonitor<'a> {
                     ..
                 },
                 maybe_account_info,
-            ) in chunk.into_iter().zip(account_infos.into_iter())
+            ) in chunk.iter().zip(account_infos.into_iter())
             {
                 if let Some(account_info) = maybe_account_info {
                     let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
