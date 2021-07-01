@@ -122,33 +122,34 @@ impl<'a> RewardsMonitor<'a> {
                     post_balance,
                     ..
                 },
-                maybe_account_info,
-            ) in chunk.iter().zip(account_infos.into_iter())
+                account_info,
+            ) in chunk
+                .iter()
+                .zip(account_infos.into_iter())
+                .filter_map(|(r, mi)| mi.map(|i| (r, i)))
             {
-                if let Some(account_info) = maybe_account_info {
-                    let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
-                    if let Some(delegation) = stake_state.delegation() {
-                        let voter = format!("{}", delegation.voter_pubkey);
-                        if !staking_seen_voters.contains(&voter) && *lamports > 0 {
-                            // TODO: Figure out what needs to be stored in the cache such that APY calculations can be reconstructed easily
-                            let lamports = *lamports as u64;
-                            let prev_balance = post_balance - lamports;
-                            let epoch_rate = lamports as f64 / prev_balance as f64;
-                            let apr = epoch_rate / epoch_duration * 365.0;
-                            let epochs_in_year = 365.0 / epoch_duration;
-                            let apy = f64::powf(1.0 + apr / epochs_in_year, epochs_in_year) - 1.0;
-                            debug!(
-                                "Staking APY of {} is {:.4} (APR {:.4})",
-                                voter,
-                                apy * 100.0,
-                                apr * 100.0
-                            );
-                            staking_apys.push(StakingApy {
-                                voter: voter.clone(),
-                                percent: apy * 100.0,
-                            });
-                            staking_seen_voters.insert(voter);
-                        }
+                let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
+                if let Some(delegation) = stake_state.delegation() {
+                    let voter = format!("{}", delegation.voter_pubkey);
+                    if !staking_seen_voters.contains(&voter) && *lamports > 0 {
+                        // TODO: Figure out what needs to be stored in the cache such that APY calculations can be reconstructed easily
+                        let lamports = *lamports as u64;
+                        let prev_balance = post_balance - lamports;
+                        let epoch_rate = lamports as f64 / prev_balance as f64;
+                        let apr = epoch_rate / epoch_duration * 365.0;
+                        let epochs_in_year = 365.0 / epoch_duration;
+                        let apy = f64::powf(1.0 + apr / epochs_in_year, epochs_in_year) - 1.0;
+                        debug!(
+                            "Staking APY of {} is {:.4} (APR {:.4})",
+                            voter,
+                            apy * 100.0,
+                            apr * 100.0
+                        );
+                        staking_apys.push(StakingApy {
+                            voter: voter.clone(),
+                            percent: apy * 100.0,
+                        });
+                        staking_seen_voters.insert(voter);
                     }
                 }
             }
