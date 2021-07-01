@@ -1,5 +1,6 @@
 use crate::rewards::caching::RewardsCache;
 use anyhow::anyhow;
+use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use solana_client::rpc_client::RpcClient;
 use solana_runtime::bank::RewardType;
@@ -89,32 +90,54 @@ impl<'a> RewardsMonitor<'a> {
         rewards: Rewards,
         epochs_in_year: f64,
     ) -> anyhow::Result<(Vec<StakingApy>, Vec<ValidatorReward>)> {
+        debug!("Processing rewards");
         let mut staking_seen_voters = BTreeSet::new();
         let mut staking_apys = Vec::new();
-        let mut validator_rewards = Vec::new();
 
-        for Reward {
-            pubkey,
-            lamports,
-            post_balance,
-            reward_type,
-        } in rewards
-        {
-            match reward_type {
-                Some(RewardType::Staking) => {
-                    // TODO: Get this to use get_multiple_accounts
-                    let account_info = self.client.get_account(&pubkey.as_str().try_into()?)?;
+        let (staking_rewards, other_rewards): (Vec<_>, Vec<_>) = rewards
+            .into_iter()
+            .partition(|r| r.reward_type == Some(RewardType::Staking));
+        let validator_rewards: Vec<_> = other_rewards
+            .into_iter()
+            .filter(|r| r.reward_type == Some(RewardType::Voting))
+            .map(|r| ValidatorReward {
+                voter: r.pubkey,
+                lamports: r.post_balance,
+            })
+            .collect();
+
+        for chunk in staking_rewards.chunks(100) {
+            let pubkeys: Vec<_> = chunk
+                .iter()
+                .filter_map(|r| r.pubkey.as_str().try_into().ok())
+                .collect();
+            let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
+
+            for (
+                Reward {
+                    lamports,
+                    post_balance,
+                    ..
+                },
+                maybe_account_info,
+            ) in chunk.into_iter().zip(account_infos.into_iter())
+            {
+                if let Some(account_info) = maybe_account_info {
                     let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
                     if let Some(delegation) = stake_state.delegation() {
                         let voter = format!("{}", delegation.voter_pubkey);
-                        if !staking_seen_voters.contains(&voter) && lamports > 0 {
+                        if !staking_seen_voters.contains(&voter) && *lamports > 0 {
                             // TODO: Figure out what needs to be stored in the cache such that APY calculations can be reconstructed easily
-                            let lamports = lamports as u64;
+                            let lamports = *lamports as u64;
                             let prev_balance = post_balance - lamports;
                             let epoch_rate = lamports as f64 / prev_balance as f64;
                             let apy = 100.0
                                 * (f64::powf(1.0 + epoch_rate / epochs_in_year, epochs_in_year)
                                     - 1.0);
+                            debug!(
+                                "Staking APY of {} is {} with epoch rate {}",
+                                voter, apy, epoch_rate
+                            );
                             staking_apys.push(StakingApy {
                                 voter: voter.clone(),
                                 percent: apy,
@@ -123,12 +146,6 @@ impl<'a> RewardsMonitor<'a> {
                         }
                     }
                 }
-                // This does not need to be cached - it is already in Rewards.
-                Some(RewardType::Voting) => validator_rewards.push(ValidatorReward {
-                    voter: pubkey,
-                    lamports: post_balance,
-                }),
-                _ => (), // TODO other reward types
             }
         }
         Ok((staking_apys, validator_rewards))
