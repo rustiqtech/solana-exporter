@@ -136,10 +136,6 @@ impl<'a> RewardsMonitor<'a> {
                 .get_rewards_for_epoch(current_epoch, current_epoch_info)?
                 .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
 
-            // Write to cache
-            self.cache
-                .add_epoch_rewards(current_epoch, &current_rewards)?;
-
             // Extract into staking rewards and validator rewards.
             let staking_rewards = current_rewards
                 .into_iter()
@@ -193,114 +189,49 @@ impl<'a> RewardsMonitor<'a> {
         Ok(())
     }
 
-    /// Splits rewards into reward type categories and does post-processing.
-    // FIXME: Make this work across multiple epochs, potentially grabbing data from the cache.
-    fn process_rewards(
-        &self,
-        rewards: Rewards,
-        epoch_duration: f64,
-    ) -> anyhow::Result<(Vec<StakingApy>, Vec<ValidatorReward>)> {
-        debug!("Processing rewards");
-        let mut staking_seen_voters = BTreeSet::new();
-        let mut staking_apys = Vec::new();
-
-        let (staking_rewards, other_rewards): (Vec<_>, Vec<_>) = rewards
-            .into_iter()
-            .partition(|r| r.reward_type == Some(RewardType::Staking));
-        let validator_rewards: Vec<_> = other_rewards
-            .into_iter()
-            .filter(|r| r.reward_type == Some(RewardType::Voting))
-            .map(|r| ValidatorReward {
-                voter: r.pubkey,
-                lamports: r.post_balance,
-            })
-            .collect();
-
-        for chunk in staking_rewards.chunks(100) {
-            let pubkeys_rewards: Vec<(Pubkey, &Reward)> = chunk
-                .iter()
-                .zip(chunk.iter())
-                .filter_map(|(r, r0)| r.pubkey.as_str().try_into().map(|p| (p, r0)).ok())
-                .collect();
-            let pubkeys: Vec<_> = pubkeys_rewards.iter().map(|e| e.0).collect();
-            let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
-
-            for (
-                Reward {
-                    lamports,
-                    post_balance,
-                    ..
-                },
-                account_info,
-            ) in chunk
-                .iter()
-                .zip(account_infos.into_iter())
-                .filter_map(|(r, mi)| mi.map(|i| (r, i)))
-            {
-                let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
-                if let Some(delegation) = stake_state.delegation() {
-                    let voter = format!("{}", delegation.voter_pubkey);
-                    if !staking_seen_voters.contains(&voter) && *lamports > 0 {
-                        // TODO: Figure out what needs to be stored in the cache such that APY calculations can be reconstructed easily
-                        let lamports = *lamports as u64;
-                        let prev_balance = post_balance - lamports;
-                        let epoch_rate = lamports as f64 / prev_balance as f64;
-                        let apr = epoch_rate / epoch_duration * 365.0;
-                        let epochs_in_year = 365.0 / epoch_duration;
-                        let apy = f64::powf(1.0 + apr / epochs_in_year, epochs_in_year) - 1.0;
-                        debug!(
-                            "Staking APY of {} is {:.4} (APR {:.4})",
-                            voter,
-                            apy * 100.0,
-                            apr * 100.0
-                        );
-                        staking_apys.push(StakingApy {
-                            voter: voter.clone(),
-                            percent: apy * 100.0,
-                        });
-                        staking_seen_voters.insert(voter);
-                    }
-                }
-            }
-        }
-        Ok((staking_apys, validator_rewards))
-    }
-
-    /// Gets the rewards for `epoch` given the current `epoch_info`. Returns `Ok(None)` if there
-    /// haven't been any rewards in the given epoch yet, `Ok(Some(rewards))` if there have, and
+    /// Gets the rewards for `epoch` given the current `epoch_info`, potentially from the cache if available. If not, RPC calls will be made. The result will be cached.
+    /// Returns `Ok(None)` if there haven't been any rewards in the given epoch yet, `Ok(Some(rewards))` if there have, and
     /// otherwise returns an error.
     fn get_rewards_for_epoch(
         &self,
         epoch: Epoch,
         epoch_info: &EpochInfo,
     ) -> anyhow::Result<Option<Rewards>> {
-        // Convert epoch number to slot
-        let start_slot = epoch * epoch_info.slots_in_epoch;
-
-        // We cannot use an excessively large range if the epoch just started. There is a chance that
-        // the end slot has not been reached and strange behaviour will occur.
-        // If this is the current epoch and less than `SLOT_OFFSET` slots have elapsed, then do not define an
-        // end_slot for use in the RPC call.
-        let end_slot = if epoch_info.epoch == epoch && epoch_info.slot_index < SLOT_OFFSET {
-            None
+        if let Some(epoch_history) = self.cache.get_epoch(epoch)? {
+            Ok(Some(
+                epoch_history.rewards.values().cloned().collect::<Vec<_>>(),
+            ))
         } else {
-            Some(start_slot + SLOT_OFFSET)
-        };
+            // Convert epoch number to slot
+            let start_slot = epoch * epoch_info.slots_in_epoch;
 
-        // First block only
-        let block = self
-            .client
-            .get_blocks(start_slot, end_slot)?
-            .get(0)
-            .cloned();
+            // We cannot use an excessively large range if the epoch just started. There is a chance that
+            // the end slot has not been reached and strange behaviour will occur.
+            // If this is the current epoch and less than `SLOT_OFFSET` slots have elapsed, then do not define an
+            // end_slot for use in the RPC call.
+            let end_slot = if epoch_info.epoch == epoch && epoch_info.slot_index < SLOT_OFFSET {
+                None
+            } else {
+                Some(start_slot + SLOT_OFFSET)
+            };
 
-        if let Some(block) = block {
-            Ok(Some(self.client.get_block(block)?.rewards))
-        } else if end_slot.is_none() {
-            // Possibly not yet computed the first block.
-            Ok(None)
-        } else {
-            Err(anyhow!("no blocks found"))
+            // First block only
+            let block = self
+                .client
+                .get_blocks(start_slot, end_slot)?
+                .get(0)
+                .cloned();
+
+            if let Some(block) = block {
+                let rewards = self.client.get_block(block)?.rewards;
+                self.cache.add_epoch_rewards(epoch, &rewards)?;
+                Ok(Some(rewards))
+            } else if end_slot.is_none() {
+                // Possibly not yet computed the first block.
+                Ok(None)
+            } else {
+                Err(anyhow!("no blocks found"))
+            }
         }
     }
 }
