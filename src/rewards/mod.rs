@@ -7,12 +7,16 @@ use solana_runtime::bank::RewardType;
 use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
 use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
+use std::collections::{HashMap, HashSet};
 use std::{collections::BTreeSet, convert::TryInto, u64};
 
 pub mod caching;
 pub mod caching_metadata;
 
 const SLOT_OFFSET: u64 = 20;
+
+/// Maximum number of epochs to look back, INCLUSIVE of the current epoch.
+const MAX_EPOCH_LOOKBACK: u64 = 5;
 
 struct StakingApy {
     voter: String,
@@ -56,13 +60,11 @@ impl<'a> RewardsMonitor<'a> {
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
         // FIXME: do not skip calculations if epoch is in database!
-        if epoch <= self.cache.get_last_seen_epoch()?.unwrap_or(0) {
+        if self.cache.seen_epoch(epoch)? {
             return Ok(());
         }
-        if let Some(rewards) = self.get_rewards_for_epoch(epoch, epoch_info.clone())? {
-            // Add epoch rewards to database
-            self.cache.add_epoch_rewards(epoch, &rewards)?;
 
+        if let Some(rewards) = self.get_rewards_for_epoch(epoch, epoch_info.clone())? {
             // FIXME: replace the constant with the previous epoch duration when using only one
             // epoch, and with the average of all used epochs if using several.
             let epoch_duration = 2.5;
@@ -83,6 +85,89 @@ impl<'a> RewardsMonitor<'a> {
         }
         Ok(())
     }
+
+    fn process_rewards_2(
+        &self,
+        current_epoch: Epoch,
+        current_rewards: Vec<Reward>,
+        epoch_duration: f64,
+    ) -> anyhow::Result<(HashSet<StakingApy>, HashSet<ValidatorReward>)> {
+        self.cache
+            .add_epoch_rewards(current_epoch, &current_rewards)?;
+
+        debug!("Processing rewards");
+        // let mut staking_seen_voters = BTreeSet::new();
+        // let mut staking_apys = HashSet::new();
+
+        // Extract into staking rewards and validator rewards.
+        let (staking_rewards, validator_rewards) = {
+            let (staking_rewards, other_rewards): (Vec<_>, Vec<_>) = current_rewards
+                .into_iter()
+                .partition(|reward| reward.reward_type == Some(RewardType::Staking));
+
+            let validator_rewards = other_rewards
+                .into_iter()
+                .filter(|reward| reward.reward_type == Some(RewardType::Voting))
+                .collect::<Vec<_>>();
+
+            (staking_rewards, validator_rewards)
+        };
+
+        // Pubkey => Reward mapping for current epoch
+        let mut rewards = staking_rewards
+            .iter()
+            .map(|reward| {
+                (
+                    (Pubkey::new(reward.pubkey.as_bytes()), current_epoch),
+                    reward.clone(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        // Pubkey => Account mapping for current epoch
+        let mut accounts = {
+            // Pre-fill pubkey-accounts with Nones.
+            let mut pka: HashMap<(_, _), _> = staking_rewards
+                .iter()
+                .map(|reward| ((Pubkey::new(reward.pubkey.as_bytes()), current_epoch), None))
+                .collect();
+
+            // Chunk into 100
+            for chunk in staking_rewards.chunks(100) {
+                // Convert pubkey into Pubkey struct
+                let pubkeys = chunk
+                    .iter()
+                    .map(|reward| Pubkey::new(reward.pubkey.as_bytes()))
+                    .collect::<Vec<_>>();
+
+                let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
+
+                // Insert account into into HashMap
+                for account_info in account_infos.into_iter().flatten() {
+                    pka.insert((account_info.owner, current_epoch), Some(account_info));
+                }
+            }
+            // Write to cache
+            self.cache
+                .add_account_data(current_epoch, &pka.values().cloned().collect::<Vec<_>>())?;
+            pka
+        };
+
+        // Filling historical gaps
+        for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
+            let epoch_history = self.cache.get_epoch(epoch)?;
+            if let Some(epoch_history) = epoch_history {
+                for (pubkey, reward) in epoch_history.rewards {
+                    rewards.insert((Pubkey::new(pubkey.as_bytes()), epoch), reward);
+                }
+                for (pubkey, account) in epoch_history.account_info {
+                    accounts.insert((pubkey, epoch), account);
+                }
+            }
+        }
+        todo!()
+    }
+
 
     /// Splits rewards into reward type categories and does post-processing.
     // FIXME: Make this work across multiple epochs, potentially grabbing data from the cache.
@@ -156,6 +241,8 @@ impl<'a> RewardsMonitor<'a> {
         }
         Ok((staking_apys, validator_rewards))
     }
+
+    /// Returns the
 
     /// Gets the rewards for `epoch` given the current `epoch_info`. Returns `Ok(None)` if there
     /// haven't been any rewards in the given epoch yet, `Ok(Some(rewards))` if there have, and

@@ -4,15 +4,24 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EpochCreditCacheMetadata {
-    seen_epochs: BTreeSet<Epoch>,
+    rewards_epoch_seen: BTreeSet<Epoch>,
+    account_data_epoch_seen: BTreeSet<Epoch>,
 }
 
 impl EpochCreditCacheMetadata {
-    pub fn seen_epochs(&self) -> &BTreeSet<Epoch> {
-        &self.seen_epochs
+    pub fn rewards_epoch_seen(&self) -> &BTreeSet<Epoch> {
+        &self.rewards_epoch_seen
     }
 
-    pub fn insert_epoch(&mut self, epoch: Epoch) {
-        self.seen_epochs.insert(epoch);
+    pub fn insert_rewards_epoch(&mut self, epoch: Epoch) {
+        self.rewards_epoch_seen.insert(epoch);
+    }
+
+    pub fn account_data_epoch_seen(&self) -> &BTreeSet<Epoch> {
+        &self.account_data_epoch_seen
+    }
+
+    pub fn insert_account_data_epoch(&mut self, epoch: Epoch) {
+        self.account_data_epoch_seen.insert(epoch);
     }
 }
