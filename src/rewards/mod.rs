@@ -114,12 +114,7 @@ impl<'a> RewardsMonitor<'a> {
                 .filter_map(|(r, r0)| r.pubkey.as_str().try_into().map(|p| (p, r0)).ok())
                 .collect();
             let pubkeys: Vec<_> = pubkeys_rewards.iter().map(|e| e.0).collect();
-            let account_infos = self
-                .client
-                .get_multiple_accounts(&pubkeys)?
-                .into_iter()
-                .map(|account| account.ok_or_else(|| anyhow!("staking account has no data")))
-                .collect::<anyhow::Result<Vec<_>>>()?;
+            let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
 
             for (
                 Reward {
@@ -128,7 +123,10 @@ impl<'a> RewardsMonitor<'a> {
                     ..
                 },
                 account_info,
-            ) in chunk.iter().zip(account_infos.into_iter())
+            ) in chunk
+                .iter()
+                .zip(account_infos.into_iter())
+                .filter_map(|(r, mi)| mi.map(|i| (r, i)))
             {
                 let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
                 if let Some(delegation) = stake_state.delegation() {
