@@ -127,7 +127,7 @@ impl<'a> RewardsMonitor<'a> {
                 .get_rewards_for_epoch(epoch, current_epoch_info)?
                 .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
             for reward in historical_rewards {
-                rewards.insert((Pubkey::new(reward.pubkey.as_bytes()), epoch), reward);
+                rewards.insert((reward.pubkey.parse()?, epoch), reward);
             }
 
             let historical_account = self.cache.get_epoch_data(epoch)?;
@@ -165,15 +165,12 @@ impl<'a> RewardsMonitor<'a> {
         for staking_reward in staking_rewards.iter().cloned() {
             // Insert into reward mapping
             rewards.insert(
-                (Pubkey::new(staking_reward.pubkey.as_bytes()), current_epoch),
+                (staking_reward.pubkey.parse()?, current_epoch),
                 staking_reward.clone(),
             );
 
             // Pre-fill accounts with Nones
-            accounts.insert(
-                (Pubkey::new(staking_reward.pubkey.as_bytes()), current_epoch),
-                None,
-            );
+            accounts.insert((staking_reward.pubkey.parse()?, current_epoch), None);
         }
 
         if let Some(data) = self.cache.get_epoch_data(current_epoch)? {
@@ -181,16 +178,16 @@ impl<'a> RewardsMonitor<'a> {
         } else {
             let mut pka: HashMap<(_, _), _> = staking_rewards
                 .iter()
-                .map(|reward| ((Pubkey::new(reward.pubkey.as_bytes()), current_epoch), None))
-                .collect();
+                .map(|reward| Ok(((reward.pubkey.parse()?, current_epoch), None)))
+                .collect::<anyhow::Result<HashMap<_, _>>>()?;
 
             // Chunk into 100
             for chunk in staking_rewards.chunks(100) {
                 // Convert pubkey into Pubkey struct
                 let pubkeys = chunk
                     .iter()
-                    .map(|reward| Pubkey::new(reward.pubkey.as_bytes()))
-                    .collect::<Vec<_>>();
+                    .map(|reward| Ok(reward.pubkey.parse()?))
+                    .collect::<anyhow::Result<Vec<_>>>()?;
 
                 let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
 
