@@ -1,15 +1,13 @@
 use crate::rewards::caching::RewardsCache;
 use anyhow::anyhow;
-use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use solana_client::rpc_client::RpcClient;
 use solana_runtime::bank::RewardType;
 use solana_sdk::account::Account;
 use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
-use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::{HashMap, HashSet};
-use std::{collections::BTreeSet, convert::TryInto, u64};
+use std::u64;
 
 pub mod caching;
 pub mod caching_metadata;
@@ -24,6 +22,7 @@ struct StakingApy {
     percent: f64,
 }
 
+#[derive(Clone, Default, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 struct ValidatorReward {
     voter: String,
     lamports: u64,
@@ -66,7 +65,8 @@ impl<'a> RewardsMonitor<'a> {
         //     return Ok(());
         // }
 
-        if let Some(rewards) = self.get_rewards_for_epoch(epoch, epoch_info)? {
+        // FIXME: If we can get Rewards here then validator_rewards should always be Some.
+        if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             // FIXME: replace the constant with the previous epoch duration when using only one
             // epoch, and with the average of all used epochs if using several.
             let epoch_duration = 2.5;
@@ -78,14 +78,32 @@ impl<'a> RewardsMonitor<'a> {
                     .map(|c| c.set(s.percent))?;
             }
 
-            // TODO: Write a function that generates validator rewards
-            // for v in validator_rewards {
-            //     self.validator_rewards
-            //         .get_metric_with_label_values(&[&v.voter])
-            //         .map(|c| c.set(v.lamports as i64))?;
-            // }
+            let validator_rewards = self
+                .calculate_validator_rewards(epoch)?
+                .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
+            for v in validator_rewards {
+                self.validator_rewards
+                    .get_metric_with_label_values(&[&v.voter])
+                    .map(|c| c.set(v.lamports as i64))?;
+            }
         }
         Ok(())
+    }
+
+    fn calculate_validator_rewards(
+        &self,
+        epoch: Epoch,
+    ) -> anyhow::Result<Option<HashSet<ValidatorReward>>> {
+        Ok(self.cache.get_epoch_rewards(epoch)?.map(|rewards| {
+            rewards
+                .into_iter()
+                .filter(|r| r.reward_type == Some(RewardType::Voting))
+                .map(|r| ValidatorReward {
+                    voter: r.pubkey,
+                    lamports: r.post_balance,
+                })
+                .collect::<HashSet<_>>()
+        }))
     }
 
     fn calculate_staking_rewards(

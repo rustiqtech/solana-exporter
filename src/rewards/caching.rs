@@ -1,13 +1,10 @@
-use crate::persistent_database::metadata::Metadata;
-use crate::rewards::caching_metadata::EpochCreditCacheMetadata;
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
-use solana_sdk::account;
+
 use solana_sdk::account::Account;
 use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::BTreeMap;
 
 pub type AccountsInfo = BTreeMap<Pubkey, Option<Account>>;
 
