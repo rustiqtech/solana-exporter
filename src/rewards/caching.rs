@@ -16,23 +16,17 @@ pub const EPOCH_REWARDS_CACHE_TREE_NAME: &str = "epoch_rewards_credit_cache";
 pub const ACCOUNT_CACHE_TREE_NAME: &str = "account_cache";
 
 /// A caching database for vote accounts' credit growth
-pub struct RewardsCache<'a> {
+pub struct RewardsCache {
     epoch_rewards_tree: sled::Tree,
     account_tree: sled::Tree,
-    metadata: &'a Metadata,
 }
 
-impl<'a> RewardsCache<'a> {
+impl RewardsCache {
     /// Creates a new cache using a tree.
-    pub fn new(
-        epoch_rewards_tree: sled::Tree,
-        account_tree: sled::Tree,
-        metadata: &'a Metadata,
-    ) -> Self {
+    pub fn new(epoch_rewards_tree: sled::Tree, account_tree: sled::Tree) -> Self {
         Self {
             epoch_rewards_tree,
             account_tree,
-            metadata,
         }
     }
 

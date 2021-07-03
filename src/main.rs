@@ -137,7 +137,6 @@ and then put real values there.",
     let rewards_cache = RewardsCache::new(
         persistent_database.tree(EPOCH_REWARDS_CACHE_TREE_NAME)?,
         persistent_database.tree(ACCOUNT_CACHE_TREE_NAME)?,
-        persistent_database.metadata(),
     );
 
     let gauges = PrometheusGauges::new();

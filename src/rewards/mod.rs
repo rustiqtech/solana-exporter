@@ -38,7 +38,7 @@ pub struct RewardsMonitor<'a> {
     /// Prometheus cumulative validator rewards gauge.
     validator_rewards: &'a IntGaugeVec,
     /// Caching database for rewards
-    cache: &'a RewardsCache<'a>, // NOTE: use get_seen_epochs() for "last_rewards_epoch".
+    cache: &'a RewardsCache, // NOTE: use get_seen_epochs() for "last_rewards_epoch".
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -47,7 +47,7 @@ impl<'a> RewardsMonitor<'a> {
         client: &'a RpcClient,
         staking_apys: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
-        rewards_cache: &'a RewardsCache<'a>,
+        rewards_cache: &'a RewardsCache,
     ) -> Self {
         Self {
             client,
