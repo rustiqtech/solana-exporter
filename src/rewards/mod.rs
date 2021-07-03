@@ -173,6 +173,7 @@ impl<'a> RewardsMonitor<'a> {
             accounts.insert((staking_reward.pubkey.parse()?, current_epoch), None);
         }
 
+        // FIXME: Use get_epoch_data to find `staking_reward - cached`
         if let Some(data) = self.cache.get_epoch_data(current_epoch)? {
             accounts.extend(data.into_iter().map(|(p, oa)| ((p, current_epoch), oa)));
         } else {
@@ -182,6 +183,7 @@ impl<'a> RewardsMonitor<'a> {
                 .collect::<anyhow::Result<HashMap<_, _>>>()?;
 
             // Chunk into 100
+            // FIXME: Delay the chunk call such that we only call `staking_reward - cached`
             for chunk in staking_rewards.chunks(100) {
                 // Convert pubkey into Pubkey struct
                 let pubkeys = chunk
@@ -197,6 +199,7 @@ impl<'a> RewardsMonitor<'a> {
                 }
             }
 
+            // FIXME: Write to cache in chunks of 100 at a time.
             // Write to cache
             self.cache
                 .add_epoch_data(current_epoch, &pka.values().cloned().collect::<Vec<_>>())?;

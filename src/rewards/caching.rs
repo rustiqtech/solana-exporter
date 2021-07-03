@@ -48,6 +48,7 @@ impl RewardsCache {
     }
 
     /// Adds a set of account data of an epoch.
+    // FIXME: Make sure this does not overwrite existing data.
     pub fn add_epoch_data(
         &self,
         epoch: Epoch,
