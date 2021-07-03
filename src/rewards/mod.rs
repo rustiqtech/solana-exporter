@@ -206,6 +206,7 @@ impl<'a> RewardsMonitor<'a> {
                 let insert = pka
                     .clone()
                     .into_iter()
+                    .filter(|((_, _), a)| a.is_some())
                     .map(|((pk, _), a)| (pk, a))
                     .collect::<HashMap<_, _>>();
 
