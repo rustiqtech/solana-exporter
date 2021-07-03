@@ -4,9 +4,9 @@ use solana_sdk::account::Account;
 use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
-pub type AccountsInfo = BTreeMap<Pubkey, Option<Account>>;
+pub type PkAccountMapping = HashMap<Pubkey, Option<Account>>;
 
 /// Name of the caching database.
 pub const EPOCH_REWARDS_CACHE_TREE_NAME: &str = "epoch_rewards_credit_cache";
@@ -48,23 +48,23 @@ impl RewardsCache {
     }
 
     /// Adds a set of account data of an epoch.
-    // FIXME: Make sure this does not overwrite existing data.
     pub fn add_epoch_data(
         &self,
         epoch: Epoch,
-        account_info: &[Option<Account>],
+        account_info: PkAccountMapping,
     ) -> anyhow::Result<()> {
+        let mut mapping = self.get_epoch_data(epoch)?.unwrap_or_default();
+
+        mapping.extend(account_info.into_iter());
+
         self.account_tree
-            .insert(
-                epoch.to_be_bytes(),
-                bincode::serialize(&account_info.to_vec())?,
-            )
+            .insert(epoch.to_be_bytes(), bincode::serialize(&mapping)?)
             .context("could not insert new account data into database")?;
         Ok(())
     }
 
     /// Returns a set of account data of an epoch
-    pub fn get_epoch_data(&self, epoch: Epoch) -> anyhow::Result<Option<AccountsInfo>> {
+    pub fn get_epoch_data(&self, epoch: Epoch) -> anyhow::Result<Option<PkAccountMapping>> {
         self.account_tree
             .get(epoch.to_be_bytes())
             .context("could not fetch from database")?

@@ -173,36 +173,45 @@ impl<'a> RewardsMonitor<'a> {
             accounts.insert((staking_reward.pubkey.parse()?, current_epoch), None);
         }
 
-        // FIXME: Use get_epoch_data to find `staking_reward - cached`
-        if let Some(data) = self.cache.get_epoch_data(current_epoch)? {
-            accounts.extend(data.into_iter().map(|(p, oa)| ((p, current_epoch), oa)));
-        } else {
-            let mut pka: HashMap<(_, _), _> = staking_rewards
+        let cached_pubkeys = self
+            .cache
+            .get_epoch_data(current_epoch)?
+            .unwrap_or_default();
+
+        // Use cached pubkeys to find what keys we need to query
+        let to_query = staking_rewards
+            .into_iter()
+            .map(|s| Ok(s.pubkey.parse()?))
+            .collect::<anyhow::Result<HashSet<Pubkey>>>()?
+            .difference(&cached_pubkeys.keys().cloned().collect::<HashSet<_>>())
+            .cloned()
+            .collect::<Vec<Pubkey>>(); // Use a Vec here to preserve ordering.
+
+        if !to_query.is_empty() {
+            // Create empty hashmap
+            let mut pka: HashMap<(_, _), _> = to_query
                 .iter()
-                .map(|reward| Ok(((reward.pubkey.parse()?, current_epoch), None)))
-                .collect::<anyhow::Result<HashMap<_, _>>>()?;
+                .map(|pubkey| ((*pubkey, current_epoch), None))
+                .collect::<HashMap<_, _>>();
 
             // Chunk into 100
-            // FIXME: Delay the chunk call such that we only call `staking_reward - cached`
-            for chunk in staking_rewards.chunks(100) {
-                // Convert pubkey into Pubkey struct
-                let pubkeys = chunk
-                    .iter()
-                    .map(|reward| Ok(reward.pubkey.parse()?))
-                    .collect::<anyhow::Result<Vec<_>>>()?;
+            for chunk in to_query.chunks(100) {
+                let account_infos = self.client.get_multiple_accounts(&chunk)?;
 
-                let account_infos = self.client.get_multiple_accounts(&pubkeys)?;
-
-                // Insert account into into HashMap
-                for account_info in account_infos.into_iter().flatten() {
-                    pka.insert((account_info.owner, current_epoch), Some(account_info));
+                // Write to hashmap
+                for (pubkey, account_info) in chunk.iter().zip(account_infos) {
+                    pka.insert((*pubkey, current_epoch), account_info);
                 }
-            }
 
-            // FIXME: Write to cache in chunks of 100 at a time.
-            // Write to cache
-            self.cache
-                .add_epoch_data(current_epoch, &pka.values().cloned().collect::<Vec<_>>())?;
+                let insert = pka
+                    .clone()
+                    .into_iter()
+                    .map(|((pk, _), a)| (pk, a))
+                    .collect::<HashMap<_, _>>();
+
+                // Write to cache in chunks of 100 at a time.
+                self.cache.add_epoch_data(current_epoch, insert)?;
+            }
 
             // Extend accounts
             accounts.extend(pka);
