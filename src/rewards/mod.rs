@@ -1,4 +1,4 @@
-use crate::rewards::caching::{EpochHistory, RewardsCache};
+use crate::rewards::caching::RewardsCache;
 use anyhow::anyhow;
 use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
@@ -61,9 +61,10 @@ impl<'a> RewardsMonitor<'a> {
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
         // FIXME: do not skip calculations if epoch is in database!
-        if self.cache.seen_epoch(epoch)? {
-            return Ok(());
-        }
+        // FIXME: Because it is possible that an epoch has been partially cached, this needs to be refactored.
+        // if self.cache.seen_epoch(epoch)? {
+        //     return Ok(());
+        // }
 
         if let Some(rewards) = self.get_rewards_for_epoch(epoch, epoch_info)? {
             // FIXME: replace the constant with the previous epoch duration when using only one
@@ -101,14 +102,21 @@ impl<'a> RewardsMonitor<'a> {
 
         // Filling historical gaps
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
-            let epoch_history = self.cache.get_epoch(epoch)?;
-            if let Some(epoch_history) = epoch_history {
-                for (pubkey, reward) in epoch_history.rewards {
-                    rewards.insert((Pubkey::new(pubkey.as_bytes()), epoch), reward);
-                }
-                for (pubkey, account) in epoch_history.account_info {
-                    accounts.insert((pubkey, epoch), account);
-                }
+            // Historical rewards
+            let historical_rewards = self
+                .get_rewards_for_epoch(epoch, current_epoch_info)?
+                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
+            for reward in historical_rewards {
+                rewards.insert((Pubkey::new(reward.pubkey.as_bytes()), epoch), reward);
+            }
+
+            let historical_account = self.cache.get_epoch_data(epoch)?;
+            if let Some(historical_account) = historical_account {
+                accounts.extend(
+                    historical_account
+                        .into_iter()
+                        .map(|(p, oa)| ((p, epoch), oa)),
+                );
             }
         }
 
@@ -124,39 +132,33 @@ impl<'a> RewardsMonitor<'a> {
     ) -> anyhow::Result<()> {
         let current_epoch = current_epoch_info.epoch;
 
-        if let Some(epoch_history) = self.cache.get_epoch(current_epoch)? {
-            for (pubkey, reward) in epoch_history.rewards {
-                rewards.insert((Pubkey::new(pubkey.as_bytes()), current_epoch), reward);
-            }
-            for (pubkey, account) in epoch_history.account_info {
-                accounts.insert((pubkey, current_epoch), account);
-            }
+        let current_rewards = self
+            .get_rewards_for_epoch(current_epoch, current_epoch_info)?
+            .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
+
+        // Extract into staking rewards and validator rewards.
+        let staking_rewards = current_rewards
+            .into_iter()
+            .filter(|reward| reward.reward_type == Some(RewardType::Staking))
+            .collect::<Vec<_>>();
+
+        for staking_reward in staking_rewards.iter().cloned() {
+            // Insert into reward mapping
+            rewards.insert(
+                (Pubkey::new(staking_reward.pubkey.as_bytes()), current_epoch),
+                staking_reward.clone(),
+            );
+
+            // Pre-fill accounts with Nones
+            accounts.insert(
+                (Pubkey::new(staking_reward.pubkey.as_bytes()), current_epoch),
+                None,
+            );
+        }
+
+        if let Some(data) = self.cache.get_epoch_data(current_epoch)? {
+            accounts.extend(data.into_iter().map(|(p, oa)| ((p, current_epoch), oa)));
         } else {
-            let current_rewards = self
-                .get_rewards_for_epoch(current_epoch, current_epoch_info)?
-                .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
-
-            // Extract into staking rewards and validator rewards.
-            let staking_rewards = current_rewards
-                .into_iter()
-                .filter(|reward| reward.reward_type == Some(RewardType::Staking))
-                .collect::<Vec<_>>();
-
-            for staking_reward in staking_rewards.iter().cloned() {
-                // Insert into reward mapping
-                rewards.insert(
-                    (Pubkey::new(staking_reward.pubkey.as_bytes()), current_epoch),
-                    staking_reward.clone(),
-                );
-
-                // Pre-fill accounts with Nones
-                accounts.insert(
-                    (Pubkey::new(staking_reward.pubkey.as_bytes()), current_epoch),
-                    None,
-                );
-            }
-
-            // Pre-fill pubkey-accounts with Nones.
             let mut pka: HashMap<(_, _), _> = staking_rewards
                 .iter()
                 .map(|reward| ((Pubkey::new(reward.pubkey.as_bytes()), current_epoch), None))
@@ -180,7 +182,7 @@ impl<'a> RewardsMonitor<'a> {
 
             // Write to cache
             self.cache
-                .add_account_data(current_epoch, &pka.values().cloned().collect::<Vec<_>>())?;
+                .add_epoch_data(current_epoch, &pka.values().cloned().collect::<Vec<_>>())?;
 
             // Extend accounts
             accounts.extend(pka);
@@ -197,10 +199,8 @@ impl<'a> RewardsMonitor<'a> {
         epoch: Epoch,
         epoch_info: &EpochInfo,
     ) -> anyhow::Result<Option<Rewards>> {
-        if let Some(epoch_history) = self.cache.get_epoch(epoch)? {
-            Ok(Some(
-                epoch_history.rewards.values().cloned().collect::<Vec<_>>(),
-            ))
+        if let Some(rewards) = self.cache.get_epoch_rewards(epoch)? {
+            Ok(Some(rewards))
         } else {
             // Convert epoch number to slot
             let start_slot = epoch * epoch_info.slots_in_epoch;

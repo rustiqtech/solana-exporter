@@ -6,47 +6,49 @@ use solana_sdk::account;
 use solana_sdk::account::Account;
 use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
-use solana_transaction_status::Reward;
-use std::collections::{BTreeMap, BTreeSet};
+use solana_transaction_status::{Reward, Rewards};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+pub type AccountsInfo = BTreeMap<Pubkey, Option<Account>>;
 
 /// Name of the caching database.
-pub const REWARDS_CACHE_TREE_NAME: &str = "epoch_credit_cache";
+pub const EPOCH_REWARDS_CACHE_TREE_NAME: &str = "epoch_rewards_credit_cache";
+pub const ACCOUNT_CACHE_TREE_NAME: &str = "account_cache";
 
 /// A caching database for vote accounts' credit growth
 pub struct RewardsCache<'a> {
-    tree: sled::Tree,
+    epoch_rewards_tree: sled::Tree,
+    account_tree: sled::Tree,
     metadata: &'a Metadata,
 }
 
 impl<'a> RewardsCache<'a> {
     /// Creates a new cache using a tree.
-    pub fn new(tree: sled::Tree, metadata: &'a Metadata) -> Self {
-        Self { tree, metadata }
+    pub fn new(
+        epoch_rewards_tree: sled::Tree,
+        account_tree: sled::Tree,
+        metadata: &'a Metadata,
+    ) -> Self {
+        Self {
+            epoch_rewards_tree,
+            account_tree,
+            metadata,
+        }
     }
 
     /// Adds a set of rewards of an epoch.
     pub fn add_epoch_rewards(&self, epoch: Epoch, rewards: &[Reward]) -> anyhow::Result<()> {
-        // Construct value
-        let epoch_history = {
-            // Try to get
-            let mut eh = self.get_epoch(epoch)?.unwrap_or_default();
-            for reward in rewards {
-                eh.rewards.insert(reward.pubkey.clone(), reward.clone());
-            }
-            eh
-        };
-
         // Insert into database
-        self.tree
-            .insert(epoch.to_be_bytes(), bincode::serialize(&epoch_history)?)
+        self.epoch_rewards_tree
+            .insert(epoch.to_be_bytes(), bincode::serialize(&rewards.to_vec())?)
             .context("could not insert epoch rewards into database")?;
 
         Ok(())
     }
 
     /// Returns the set of rewards of an epoch.
-    pub fn get_epoch(&self, epoch: Epoch) -> anyhow::Result<Option<EpochHistory>> {
-        self.tree
+    pub fn get_epoch_rewards(&self, epoch: Epoch) -> anyhow::Result<Option<Rewards>> {
+        self.epoch_rewards_tree
             .get(epoch.to_be_bytes())
             .context("could not fetch epoch rewards from database")?
             .map(|x| bincode::deserialize(&x))
@@ -55,19 +57,28 @@ impl<'a> RewardsCache<'a> {
     }
 
     /// Adds a set of account data of an epoch.
-    pub fn add_account_data(
+    pub fn add_epoch_data(
         &self,
         epoch: Epoch,
         account_info: &[Option<Account>],
     ) -> anyhow::Result<()> {
-        todo!()
+        self.account_tree
+            .insert(
+                epoch.to_be_bytes(),
+                bincode::serialize(&account_info.to_vec())?,
+            )
+            .context("could not insert new account data into database")?;
+        Ok(())
     }
 
-    /// Returns if epoch has data.
-    pub fn seen_epoch(&self, epoch: Epoch) -> anyhow::Result<bool> {
-        self.tree
-            .contains_key(epoch.to_be_bytes())
-            .context("could not read database")
+    /// Returns a set of account data of an epoch
+    pub fn get_epoch_data(&self, epoch: Epoch) -> anyhow::Result<Option<AccountsInfo>> {
+        self.account_tree
+            .get(epoch.to_be_bytes())
+            .context("could not fetch from database")?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()
+            .context("could not deserialize fetched data")
     }
 }
 
@@ -168,11 +179,3 @@ impl<'a> RewardsCache<'a> {
 //     pub epoch_reward: BTreeMap<Epoch, Reward>,
 //     pub account_info: BTreeMap<Epoch, Option<Account>>
 // }
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct EpochHistory {
-    // Pubkey => Reward
-    // TODO: Should this be a Pubkey?
-    pub rewards: BTreeMap<String, Reward>,
-    pub account_info: BTreeMap<Pubkey, Option<Account>>,
-}
