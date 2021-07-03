@@ -90,6 +90,7 @@ impl<'a> RewardsMonitor<'a> {
         Ok(())
     }
 
+    /// Calculates the validator rewards for an epoch.
     fn calculate_validator_rewards(
         &self,
         epoch: Epoch,
@@ -106,6 +107,7 @@ impl<'a> RewardsMonitor<'a> {
         }))
     }
 
+    /// Calculates the staking rewards over the last `MAX_EPOCH_LOOKBACK` epochs.
     fn calculate_staking_rewards(
         &self,
         current_epoch_info: &EpochInfo,
@@ -141,7 +143,7 @@ impl<'a> RewardsMonitor<'a> {
         todo!("missing staking apy calculation using multiple epochs")
     }
 
-    /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC.
+    /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC. The cache will be updated.
     fn fill_current_epoch(
         &self,
         current_epoch_info: &EpochInfo,
@@ -209,7 +211,7 @@ impl<'a> RewardsMonitor<'a> {
         Ok(())
     }
 
-    /// Gets the rewards for `epoch` given the current `epoch_info`, potentially from the cache if available. If not, RPC calls will be made. The result will be cached.
+    /// Gets the rewards for `epoch` given the current `epoch_info`, either from RPC or cache. The cache will be updated.
     /// Returns `Ok(None)` if there haven't been any rewards in the given epoch yet, `Ok(Some(rewards))` if there have, and
     /// otherwise returns an error.
     fn get_rewards_for_epoch(
