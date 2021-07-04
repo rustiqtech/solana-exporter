@@ -173,6 +173,7 @@ impl<'a> RewardsMonitor<'a> {
             accounts.insert((staking_reward.pubkey.parse()?, current_epoch), None);
         }
 
+        // Fetched pubkeys from cache
         let cached_pubkeys = self
             .cache
             .get_epoch_data(current_epoch)?
@@ -186,6 +187,13 @@ impl<'a> RewardsMonitor<'a> {
             .difference(&cached_pubkeys.keys().cloned().collect::<HashSet<_>>())
             .cloned()
             .collect::<Vec<Pubkey>>(); // Use a Vec here to preserve ordering.
+
+        // Move cached pubkeys into accounts
+        accounts.extend(
+            cached_pubkeys
+                .into_iter()
+                .map(|(p, a)| ((p, current_epoch), a)),
+        );
 
         if !to_query.is_empty() {
             // Create empty hashmap
@@ -211,6 +219,7 @@ impl<'a> RewardsMonitor<'a> {
                     .collect::<HashMap<_, _>>();
 
                 // Write to cache in chunks of 100 at a time.
+                // FIXME: This writes all account state into database, which is inefficient. Refactor so that only APY data is written and `accounts` only stores APY data and drop account information here.
                 self.cache.add_epoch_data(current_epoch, insert)?;
             }
 
