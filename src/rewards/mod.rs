@@ -162,15 +162,12 @@ impl<'a> RewardsMonitor<'a> {
             .filter(|reward| reward.reward_type == Some(RewardType::Staking))
             .collect::<Vec<_>>();
 
+        // Copy staking_rewards into rewards
         for staking_reward in staking_rewards.iter().cloned() {
-            // Insert into reward mapping
             rewards.insert(
                 (staking_reward.pubkey.parse()?, current_epoch),
                 staking_reward.clone(),
             );
-
-            // Pre-fill accounts with Nones
-            accounts.insert((staking_reward.pubkey.parse()?, current_epoch), None);
         }
 
         // Fetched pubkeys from cache
@@ -214,7 +211,6 @@ impl<'a> RewardsMonitor<'a> {
                 let insert = pka
                     .clone()
                     .into_iter()
-                    .filter(|((_, _), a)| a.is_some())
                     .map(|((pk, _), a)| (pk, a))
                     .collect::<HashMap<_, _>>();
 
