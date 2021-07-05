@@ -117,10 +117,22 @@ impl<'a> RewardsMonitor<'a> {
         let mut rewards = HashMap::new();
         let mut accounts = HashMap::new();
 
-        // Fill current epoch
-        self.fill_current_epoch(current_epoch_info, &mut rewards, &mut accounts)?;
-
         // Filling historical gaps
+        self.fill_historical_epochs(current_epoch_info, &mut rewards, &mut accounts);
+
+        // Fill current epoch and find APY
+        self.fill_current_epoch_and_find_apy(current_epoch_info, &mut rewards, &mut accounts)
+    }
+
+    /// Fills `rewards` and `accounts` with previous epochs' information, up to `MAX_EPOCH_LOOKBACK` epochs ago.
+    fn fill_historical_epochs(
+        &self,
+        current_epoch_info: &EpochInfo,
+        rewards: &mut HashMap<(Pubkey, u64), Reward>,
+        accounts: &mut HashMap<(Pubkey, u64), Option<Account>>,
+    ) {
+        let current_epoch = current_epoch_info.epoch;
+
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
             // Historical rewards
             let historical_rewards = self
@@ -139,17 +151,16 @@ impl<'a> RewardsMonitor<'a> {
                 );
             }
         }
-
-        todo!("missing staking apy calculation using multiple epochs")
     }
 
     /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC. The cache will be updated.
-    fn fill_current_epoch(
+    fn fill_current_epoch_and_find_apy(
         &self,
         current_epoch_info: &EpochInfo,
         rewards: &mut HashMap<(Pubkey, Epoch), Reward>,
+        // FIXME: Change type of this mapping
         accounts: &mut HashMap<(Pubkey, Epoch), Option<Account>>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<HashSet<StakingApy>> {
         let current_epoch = current_epoch_info.epoch;
 
         let current_rewards = self
@@ -204,6 +215,7 @@ impl<'a> RewardsMonitor<'a> {
                 let account_infos = self.client.get_multiple_accounts(&chunk)?;
 
                 // Write to hashmap
+                // FIXME: Insert only APY data, calculate them here.
                 for (pubkey, account_info) in chunk.iter().zip(account_infos) {
                     pka.insert((*pubkey, current_epoch), account_info);
                 }
@@ -223,7 +235,7 @@ impl<'a> RewardsMonitor<'a> {
             accounts.extend(pka);
         }
 
-        Ok(())
+        todo!("missing staking apy calculation using multiple epochs")
     }
 
     /// Gets the rewards for `epoch` given the current `epoch_info`, either from RPC or cache. The cache will be updated.

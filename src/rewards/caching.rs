@@ -6,6 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::HashMap;
 
+// FIXME: This is space inefficient. `Option<Account>` should be something else that only stores APY data.
 pub type PkAccountMapping = HashMap<Pubkey, Option<Account>>;
 
 /// Name of the caching database.
