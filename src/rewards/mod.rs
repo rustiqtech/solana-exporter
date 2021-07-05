@@ -113,12 +113,11 @@ impl<'a> RewardsMonitor<'a> {
         current_epoch_info: &EpochInfo,
         epoch_duration: f64,
     ) -> anyhow::Result<HashSet<StakingApy>> {
-        let current_epoch = current_epoch_info.epoch;
         let mut rewards = HashMap::new();
         let mut accounts = HashMap::new();
 
         // Filling historical gaps
-        self.fill_historical_epochs(current_epoch_info, &mut rewards, &mut accounts);
+        self.fill_historical_epochs(current_epoch_info, &mut rewards, &mut accounts)?;
 
         // Fill current epoch and find APY
         self.fill_current_epoch_and_find_apy(current_epoch_info, &mut rewards, &mut accounts)
@@ -130,7 +129,7 @@ impl<'a> RewardsMonitor<'a> {
         current_epoch_info: &EpochInfo,
         rewards: &mut HashMap<(Pubkey, u64), Reward>,
         accounts: &mut HashMap<(Pubkey, u64), Option<Account>>,
-    ) {
+    ) -> anyhow::Result<()> {
         let current_epoch = current_epoch_info.epoch;
 
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
@@ -151,6 +150,8 @@ impl<'a> RewardsMonitor<'a> {
                 );
             }
         }
+
+        Ok(())
     }
 
     /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC. The cache will be updated.
