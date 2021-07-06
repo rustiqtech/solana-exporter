@@ -17,6 +17,10 @@ const SLOT_OFFSET: u64 = 20;
 /// Maximum number of epochs to look back, INCLUSIVE of the current epoch.
 const MAX_EPOCH_LOOKBACK: u64 = 5;
 
+pub(crate) type PubkeyEpoch = (Pubkey, Epoch);
+type PkEpochRewardMap = HashMap<PubkeyEpoch, Reward>;
+type PkEpochAccountMap = HashMap<PubkeyEpoch, Option<Account>>;
+
 struct StakingApy {
     voter: String,
     percent: f64,
@@ -113,11 +117,8 @@ impl<'a> RewardsMonitor<'a> {
         current_epoch_info: &EpochInfo,
         epoch_duration: f64,
     ) -> anyhow::Result<HashSet<StakingApy>> {
-        let mut rewards = HashMap::new();
-        let mut accounts = HashMap::new();
-
         // Filling historical gaps
-        self.fill_historical_epochs(current_epoch_info, &mut rewards, &mut accounts)?;
+        let (mut rewards, mut accounts) = self.fill_historical_epochs(current_epoch_info)?;
 
         // Fill current epoch and find APY
         self.fill_current_epoch_and_find_apy(current_epoch_info, &mut rewards, &mut accounts)
@@ -127,10 +128,11 @@ impl<'a> RewardsMonitor<'a> {
     fn fill_historical_epochs(
         &self,
         current_epoch_info: &EpochInfo,
-        rewards: &mut HashMap<(Pubkey, u64), Reward>,
-        accounts: &mut HashMap<(Pubkey, u64), Option<Account>>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<(PkEpochRewardMap, PkEpochAccountMap)> {
         let current_epoch = current_epoch_info.epoch;
+
+        let mut rewards = HashMap::new();
+        let mut accounts = HashMap::new();
 
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
             // Historical rewards
@@ -151,16 +153,16 @@ impl<'a> RewardsMonitor<'a> {
             }
         }
 
-        Ok(())
+        Ok((rewards, accounts))
     }
 
     /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC. The cache will be updated.
     fn fill_current_epoch_and_find_apy(
         &self,
         current_epoch_info: &EpochInfo,
-        rewards: &mut HashMap<(Pubkey, Epoch), Reward>,
+        rewards: &mut PkEpochRewardMap,
         // FIXME: Change type of this mapping
-        accounts: &mut HashMap<(Pubkey, Epoch), Option<Account>>,
+        accounts: &mut PkEpochAccountMap,
     ) -> anyhow::Result<HashSet<StakingApy>> {
         let current_epoch = current_epoch_info.epoch;
 
