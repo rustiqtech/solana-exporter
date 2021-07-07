@@ -201,9 +201,22 @@ impl PrometheusGauges {
 
     /// Exports information about nodes
     pub fn export_nodes_info(&self, nodes: &[RpcContactInfo]) -> anyhow::Result<()> {
+        // Tally of node versions
+        let versions: HashMap<String, u32> = nodes.iter().fold(HashMap::new(), |mut map, rpc| {
+            *map.entry(rpc.version.clone().unwrap_or_else(|| "unknown".to_string()))
+                .or_insert(0) += 1;
+            map
+        });
+
         // TODO: Balance of node pubkeys
-        // TODO: Tally of node versions
         // TODO: Number of nodes
+
+        // Export node versions
+        for (version, account) in versions {
+            self.node_versions
+                .get_metric_with_label_values(&[&version])
+                .map(|c| c.set(account as i64))?;
+        }
         todo!()
     }
 
