@@ -39,6 +39,9 @@ pub struct PrometheusGauges {
     pub dc_by_stake: IntGaugeVec,
     pub leader_slots: IntCounterVec,
     pub skipped_slot_percent: GaugeVec,
+    pub node_pubkey_balances: IntGaugeVec,
+    pub node_versions: IntGaugeVec,
+    pub nodes: IntGauge,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -125,6 +128,19 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
+            node_pubkey_balances: register_int_gauge_vec!(
+                "solana_node_pubkey_balances",
+                "Balance of node pubkeys",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            node_versions: register_int_gauge_vec!(
+                "solana_node_versions",
+                "Count of node versions",
+                &["version"]
+            )
+            .unwrap(),
+            nodes: register_int_gauge!("solana_nodes", "Number of nodes").unwrap(),
             client: reqwest::Client::new(),
         }
     }
@@ -181,6 +197,14 @@ impl PrometheusGauges {
         self.current_epoch_last_slot.set(last_slot);
 
         Ok(())
+    }
+
+    /// Exports information about nodes
+    pub fn export_nodes_info(&self, nodes: &[RpcContactInfo]) -> anyhow::Result<()> {
+        // TODO: Balance of node pubkeys
+        // TODO: Tally of node versions
+        // TODO: Number of nodes
+        todo!()
     }
 
     /// Exports gauges for geolocation of validators

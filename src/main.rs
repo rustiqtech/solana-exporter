@@ -148,6 +148,7 @@ and then put real values there.",
         gauges
             .export_epoch_info(&epoch_info)
             .context("Failed to export epoch info metrics")?;
+        gauges.export_nodes_info(&nodes)?;
         if let Some(maxmind) = config.maxmind.clone() {
             // If the MaxMind API is configured, submit queries for any uncached IPs.
             gauges
