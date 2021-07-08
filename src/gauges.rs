@@ -13,6 +13,7 @@ use prometheus_exporter::prometheus::{
     register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
     GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
 };
+use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
@@ -200,7 +201,39 @@ impl PrometheusGauges {
     }
 
     /// Exports information about nodes
-    pub fn export_nodes_info(&self, nodes: &[RpcContactInfo]) -> anyhow::Result<()> {
+    pub fn export_nodes_info(
+        &self,
+        nodes: &[RpcContactInfo],
+        client: &RpcClient,
+        whitelist: &Whitelist,
+    ) -> anyhow::Result<()> {
+        // Balance of node pubkeys
+        let balances = nodes
+            .iter()
+            .filter(|rpc| {
+                if whitelist.is_empty() {
+                    true
+                } else {
+                    whitelist.contains(&rpc.pubkey)
+                }
+            })
+            .map(|rpc| {
+                Ok((
+                    rpc.pubkey.clone(),
+                    client.get_balance(&rpc.pubkey.parse()?)?,
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        for (pubkey, balance) in balances {
+            self.node_pubkey_balances
+                .get_metric_with_label_values(&[&pubkey])
+                .map(|c| c.set(balance as i64))?;
+        }
+
+        // Export number of nodes
+        self.nodes.set(nodes.len() as i64);
+
         // Tally of node versions
         let versions: HashMap<String, u32> = nodes.iter().fold(HashMap::new(), |mut map, rpc| {
             *map.entry(rpc.version.clone().unwrap_or_else(|| "unknown".to_string()))
@@ -208,18 +241,13 @@ impl PrometheusGauges {
             map
         });
 
-        // TODO: Balance of node pubkeys
-
-        // Export number of nodes
-        self.nodes.set(nodes.len() as i64);
-
-        // Export node versions
         for (version, account) in versions {
             self.node_versions
                 .get_metric_with_label_values(&[&version])
                 .map(|c| c.set(account as i64))?;
         }
-        todo!()
+
+        Ok(())
     }
 
     /// Exports gauges for geolocation of validators
