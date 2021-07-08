@@ -209,7 +209,9 @@ impl PrometheusGauges {
         });
 
         // TODO: Balance of node pubkeys
-        // TODO: Number of nodes
+
+        // Export number of nodes
+        self.nodes.set(nodes.len() as i64);
 
         // Export node versions
         for (version, account) in versions {
