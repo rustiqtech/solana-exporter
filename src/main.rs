@@ -146,7 +146,7 @@ and then put real values there.",
             .export_vote_accounts(&vote_accounts)
             .context("Failed to export vote account metrics")?;
         gauges
-            .export_epoch_info(&epoch_info)
+            .export_epoch_info(&epoch_info, &client)
             .context("Failed to export epoch info metrics")?;
         gauges.export_nodes_info(&nodes, &client, &config.pubkey_whitelist)?;
         if let Some(maxmind) = config.maxmind.clone() {

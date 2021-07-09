@@ -10,8 +10,8 @@ use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
 use log::{debug, error};
 use prometheus_exporter::prometheus::{
-    register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
-    GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
+    register_gauge, register_gauge_vec, register_int_counter_vec, register_int_gauge,
+    register_int_gauge_vec, Gauge, GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
 };
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
@@ -43,6 +43,7 @@ pub struct PrometheusGauges {
     pub node_pubkey_balances: IntGaugeVec,
     pub node_versions: IntGaugeVec,
     pub nodes: IntGauge,
+    pub average_slot_time: Gauge,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -142,6 +143,7 @@ impl PrometheusGauges {
             )
             .unwrap(),
             nodes: register_int_gauge!("solana_nodes", "Number of nodes").unwrap(),
+            average_slot_time: register_gauge!("average_slot_time", "Average slot time").unwrap(),
             client: reqwest::Client::new(),
         }
     }
@@ -186,7 +188,11 @@ impl PrometheusGauges {
     }
 
     /// Exports gauges for epoch
-    pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
+    pub fn export_epoch_info(
+        &self,
+        epoch_info: &EpochInfo,
+        client: &RpcClient,
+    ) -> anyhow::Result<()> {
         let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
         let last_slot = first_slot + epoch_info.slots_in_epoch;
 
@@ -196,6 +202,11 @@ impl PrometheusGauges {
         self.current_epoch.set(epoch_info.epoch as i64);
         self.current_epoch_first_slot.set(first_slot as i64);
         self.current_epoch_last_slot.set(last_slot as i64);
+
+        let average_slot_time = (epoch_info.absolute_slot) as f64
+            / (OffsetDateTime::now_utc().unix_timestamp()
+                - client.get_block(first_slot)?.block_time.unwrap()) as f64;
+        self.average_slot_time.set(average_slot_time);
 
         Ok(())
     }
