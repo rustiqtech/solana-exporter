@@ -187,15 +187,15 @@ impl PrometheusGauges {
 
     /// Exports gauges for epoch
     pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
-        let first_slot = epoch_info.absolute_slot as i64;
-        let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
+        let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
+        let last_slot = first_slot + epoch_info.slots_in_epoch;
 
         self.transaction_count
             .set(epoch_info.transaction_count.unwrap_or_default() as i64);
         self.slot_height.set(epoch_info.absolute_slot as i64);
         self.current_epoch.set(epoch_info.epoch as i64);
-        self.current_epoch_first_slot.set(first_slot);
-        self.current_epoch_last_slot.set(last_slot);
+        self.current_epoch_first_slot.set(first_slot as i64);
+        self.current_epoch_last_slot.set(last_slot as i64);
 
         Ok(())
     }
