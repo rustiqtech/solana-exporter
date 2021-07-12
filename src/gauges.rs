@@ -204,9 +204,10 @@ impl PrometheusGauges {
         self.current_epoch_first_slot.set(first_slot as i64);
         self.current_epoch_last_slot.set(last_slot as i64);
 
-        let average_slot_time = (epoch_info.slot_index) as f64
-            / (OffsetDateTime::now_utc().unix_timestamp()
-                - client.get_block(first_slot)?.block_time.unwrap()) as f64;
+        let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
+            - client.get_block(first_slot)?.block_time.unwrap())
+            as f64
+            / (epoch_info.slot_index) as f64;
         self.average_slot_time.set(average_slot_time);
 
         Ok(())
