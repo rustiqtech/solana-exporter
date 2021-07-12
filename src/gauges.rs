@@ -143,7 +143,8 @@ impl PrometheusGauges {
             )
             .unwrap(),
             nodes: register_int_gauge!("solana_nodes", "Number of nodes").unwrap(),
-            average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time").unwrap(),
+            average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time")
+                .unwrap(),
             client: reqwest::Client::new(),
         }
     }
@@ -203,7 +204,7 @@ impl PrometheusGauges {
         self.current_epoch_first_slot.set(first_slot as i64);
         self.current_epoch_last_slot.set(last_slot as i64);
 
-        let average_slot_time = (epoch_info.absolute_slot) as f64
+        let average_slot_time = (epoch_info.slot_index) as f64
             / (OffsetDateTime::now_utc().unix_timestamp()
                 - client.get_block(first_slot)?.block_time.unwrap()) as f64;
         self.average_slot_time.set(average_slot_time);
