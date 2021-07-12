@@ -143,7 +143,7 @@ impl PrometheusGauges {
             )
             .unwrap(),
             nodes: register_int_gauge!("solana_nodes", "Number of nodes").unwrap(),
-            average_slot_time: register_gauge!("average_slot_time", "Average slot time").unwrap(),
+            average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time").unwrap(),
             client: reqwest::Client::new(),
         }
     }
