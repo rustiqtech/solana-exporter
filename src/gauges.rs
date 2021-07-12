@@ -218,28 +218,30 @@ impl PrometheusGauges {
         client: &RpcClient,
         whitelist: &Whitelist,
     ) -> anyhow::Result<()> {
-        // Balance of node pubkeys
-        let balances = nodes
-            .iter()
-            .filter(|rpc| {
-                if whitelist.is_empty() {
-                    true
-                } else {
-                    whitelist.contains(&rpc.pubkey)
-                }
-            })
-            .map(|rpc| {
-                Ok((
-                    rpc.pubkey.clone(),
-                    client.get_balance(&rpc.pubkey.parse()?)?,
-                ))
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        // Balance of node pubkeys. Only exported if a whitelist is set!
+        if !whitelist.is_empty() {
+            let balances = nodes
+                .iter()
+                .filter(|rpc| {
+                    if whitelist.is_empty() {
+                        true
+                    } else {
+                        whitelist.contains(&rpc.pubkey)
+                    }
+                })
+                .map(|rpc| {
+                    Ok((
+                        rpc.pubkey.clone(),
+                        client.get_balance(&rpc.pubkey.parse()?)?,
+                    ))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
 
-        for (pubkey, balance) in balances {
-            self.node_pubkey_balances
-                .get_metric_with_label_values(&[&pubkey])
-                .map(|c| c.set(balance as i64))?;
+            for (pubkey, balance) in balances {
+                self.node_pubkey_balances
+                    .get_metric_with_label_values(&[&pubkey])
+                    .map(|c| c.set(balance as i64))?;
+            }
         }
 
         // Export number of nodes
