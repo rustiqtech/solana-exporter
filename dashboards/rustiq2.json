@@ -15,8 +15,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 1,
-  "id": 4,
-  "iteration": 1626124699687,
+  "id": 1,
+  "iteration": 1626208500331,
   "links": [],
   "panels": [
     {
@@ -148,58 +148,6 @@
     },
     {
       "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 14,
-        "w": 8,
-        "x": 16,
-        "y": 1
-      },
-      "id": 36,
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "text": {}
-      },
-      "pluginVersion": "8.0.5",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "rate(solana_transaction_count[5m])",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "title": "Transactions per second",
-      "type": "gauge"
-    },
-    {
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -222,12 +170,16 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 9,
-        "x": 7,
-        "y": 8
+        "w": 8,
+        "x": 16,
+        "y": 1
       },
       "id": 34,
       "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -235,9 +187,8 @@
           "fields": "",
           "values": false
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "text": {}
+        "text": {},
+        "textMode": "auto"
       },
       "pluginVersion": "8.0.5",
       "targets": [
@@ -250,7 +201,62 @@
         }
       ],
       "title": "Average slot time in epoch",
-      "type": "gauge"
+      "type": "stat"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 17,
+        "x": 7,
+        "y": 8
+      },
+      "id": 36,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.5",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(solana_transaction_count[5m])",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Transactions per second",
+      "type": "stat"
     },
     {
       "collapsed": false,
@@ -1149,7 +1155,31 @@
         "datasource": "Prometheus",
         "definition": "label_values(solana_active_validators, service)",
         "description": null,
-        "error": null,
+        "error": {
+          "config": {
+            "data": {
+              "end": "1626208501",
+              "match[]": "solana_active_validators",
+              "start": "1626197701"
+            },
+            "headers": {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-Grafana-Org-Id": 1
+            },
+            "hideFromInspector": true,
+            "method": "POST",
+            "retry": 0,
+            "url": "api/datasources/proxy/1/api/v1/series"
+          },
+          "data": {
+            "error": "Bad Gateway",
+            "message": "Bad Gateway",
+            "response": ""
+          },
+          "message": "Bad Gateway",
+          "status": 502,
+          "statusText": "Bad Gateway"
+        },
         "hide": 0,
         "includeAll": true,
         "label": null,
@@ -1172,7 +1202,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {
@@ -1190,6 +1220,6 @@
   },
   "timezone": "",
   "title": "Solana Exporter",
-  "uid": "zzSNFpR7z",
-  "version": 5
+  "uid": "YntIzxinz",
+  "version": 3
 }
