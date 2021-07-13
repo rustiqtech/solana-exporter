@@ -224,9 +224,7 @@ impl PrometheusGauges {
         if !whitelist.is_empty() {
             let balances = nodes
                 .iter()
-                .filter(|rpc| {
-                    whitelist.is_empty() || whitelist.contains(&rpc.pubkey)
-                })
+                .filter(|rpc| whitelist.is_empty() || whitelist.contains(&rpc.pubkey))
                 .map(|rpc| {
                     Ok((
                         rpc.pubkey.clone(),
@@ -252,10 +250,10 @@ impl PrometheusGauges {
             map
         });
 
-        for (version, account) in versions {
+        for (version, count) in versions {
             self.node_versions
                 .get_metric_with_label_values(&[&version])
-                .map(|c| c.set(account as i64))?;
+                .map(|c| c.set(count as i64))?;
         }
 
         Ok(())
