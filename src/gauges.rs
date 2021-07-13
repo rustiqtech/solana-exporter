@@ -225,11 +225,7 @@ impl PrometheusGauges {
             let balances = nodes
                 .iter()
                 .filter(|rpc| {
-                    if whitelist.is_empty() {
-                        true
-                    } else {
-                        whitelist.contains(&rpc.pubkey)
-                    }
+                    whitelist.is_empty() || whitelist.contains(&rpc.pubkey)
                 })
                 .map(|rpc| {
                     Ok((
