@@ -513,7 +513,7 @@
       "type": "row"
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -611,7 +611,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -709,7 +709,7 @@
       }
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -806,7 +806,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -895,7 +895,7 @@
       }
     },
     {
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -985,7 +985,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -1079,7 +1079,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Prometheus",
+      "datasource": "${DS_PROMETHEUS}",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -1182,7 +1182,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "datasource": "Prometheus",
+        "datasource": "${DS_PROMETHEUS}",
         "definition": "label_values(solana_active_validators, service)",
         "description": null,
         "error": {
