@@ -10,9 +10,10 @@ use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
 use log::{debug, error};
 use prometheus_exporter::prometheus::{
-    register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
-    GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
+    register_gauge, register_gauge_vec, register_int_counter_vec, register_int_gauge,
+    register_int_gauge_vec, Gauge, GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
 };
+use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use std::collections::HashMap;
@@ -41,6 +42,10 @@ pub struct PrometheusGauges {
     pub skipped_slot_percent: GaugeVec,
     pub staking_apy: GaugeVec,
     pub validator_rewards: IntGaugeVec,
+    pub node_pubkey_balances: IntGaugeVec,
+    pub node_versions: IntGaugeVec,
+    pub nodes: IntGauge,
+    pub average_slot_time: Gauge,
     // Connection pool for querying
     client: reqwest::Client,
 }
@@ -139,6 +144,21 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
+            node_pubkey_balances: register_int_gauge_vec!(
+                "solana_node_pubkey_balances",
+                "Balance of node pubkeys",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            node_versions: register_int_gauge_vec!(
+                "solana_node_versions",
+                "Count of node versions",
+                &["version"]
+            )
+            .unwrap(),
+            nodes: register_int_gauge!("solana_nodes", "Number of nodes").unwrap(),
+            average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time")
+                .unwrap(),
             client: reqwest::Client::new(),
         }
     }
@@ -183,16 +203,72 @@ impl PrometheusGauges {
     }
 
     /// Exports gauges for epoch
-    pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
-        let first_slot = epoch_info.absolute_slot as i64;
-        let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
+    pub fn export_epoch_info(
+        &self,
+        epoch_info: &EpochInfo,
+        client: &RpcClient,
+    ) -> anyhow::Result<()> {
+        let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
+        let last_slot = first_slot + epoch_info.slots_in_epoch;
 
         self.transaction_count
             .set(epoch_info.transaction_count.unwrap_or_default() as i64);
         self.slot_height.set(epoch_info.absolute_slot as i64);
         self.current_epoch.set(epoch_info.epoch as i64);
-        self.current_epoch_first_slot.set(first_slot);
-        self.current_epoch_last_slot.set(last_slot);
+        self.current_epoch_first_slot.set(first_slot as i64);
+        self.current_epoch_last_slot.set(last_slot as i64);
+
+        let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
+            - client.get_block(first_slot)?.block_time.unwrap())
+            as f64
+            / (epoch_info.slot_index) as f64;
+        self.average_slot_time.set(average_slot_time);
+
+        Ok(())
+    }
+
+    /// Exports information about nodes
+    pub fn export_nodes_info(
+        &self,
+        nodes: &[RpcContactInfo],
+        client: &RpcClient,
+        whitelist: &Whitelist,
+    ) -> anyhow::Result<()> {
+        // Balance of node pubkeys. Only exported if a whitelist is set!
+        if !whitelist.is_empty() {
+            let balances = nodes
+                .iter()
+                .filter(|rpc| whitelist.is_empty() || whitelist.contains(&rpc.pubkey))
+                .map(|rpc| {
+                    Ok((
+                        rpc.pubkey.clone(),
+                        client.get_balance(&rpc.pubkey.parse()?)?,
+                    ))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            for (pubkey, balance) in balances {
+                self.node_pubkey_balances
+                    .get_metric_with_label_values(&[&pubkey])
+                    .map(|c| c.set(balance as i64))?;
+            }
+        }
+
+        // Export number of nodes
+        self.nodes.set(nodes.len() as i64);
+
+        // Tally of node versions
+        let versions: HashMap<String, u32> = nodes.iter().fold(HashMap::new(), |mut map, rpc| {
+            *map.entry(rpc.version.clone().unwrap_or_else(|| "unknown".to_string()))
+                .or_insert(0) += 1;
+            map
+        });
+
+        for (version, count) in versions {
+            self.node_versions
+                .get_metric_with_label_values(&[&version])
+                .map(|c| c.set(count as i64))?;
+        }
 
         Ok(())
     }
