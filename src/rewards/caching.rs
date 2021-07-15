@@ -6,8 +6,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::HashMap;
 
-// FIXME: This is space inefficient. `Option<Account>` should be something else that only stores APY data.
-pub type PkAccountMapping = HashMap<Pubkey, Option<Account>>;
+pub type PkApyMapping = HashMap<Pubkey, u64>;
 
 /// Name of the caching database.
 pub const EPOCH_REWARDS_CACHE_TREE_NAME: &str = "epoch_rewards_credit_cache";
@@ -16,7 +15,7 @@ pub const ACCOUNT_CACHE_TREE_NAME: &str = "account_cache";
 /// A caching database for vote accounts' credit growth
 pub struct RewardsCache {
     epoch_rewards_tree: sled::Tree,
-    account_tree: sled::Tree,
+    apy_tree: sled::Tree,
 }
 
 impl RewardsCache {
@@ -24,7 +23,7 @@ impl RewardsCache {
     pub fn new(epoch_rewards_tree: sled::Tree, account_tree: sled::Tree) -> Self {
         Self {
             epoch_rewards_tree,
-            account_tree,
+            apy_tree,
         }
     }
 
@@ -48,25 +47,25 @@ impl RewardsCache {
             .context("could not deserialize fetched epoch rewards")
     }
 
-    /// Adds a set of account data of an epoch.
+    /// Adds a set of staking APY data of an epoch.
     pub fn add_epoch_data(
         &self,
         epoch: Epoch,
-        account_info: PkAccountMapping,
+        apys: PkApyMapping,
     ) -> anyhow::Result<()> {
-        let mut mapping = self.get_epoch_data(epoch)?.unwrap_or_default();
+        let mut mapping = self.get_epoch_data(epoch)?;
 
-        mapping.extend(account_info.into_iter());
+        mapping.extend(apys.into_iter());
 
-        self.account_tree
+        self.apy_tree
             .insert(epoch.to_be_bytes(), bincode::serialize(&mapping)?)
-            .context("could not insert new account data into database")?;
+            .context("could not insert new APY data into database")?;
         Ok(())
     }
 
-    /// Returns a set of account data of an epoch
-    pub fn get_epoch_data(&self, epoch: Epoch) -> anyhow::Result<Option<PkAccountMapping>> {
-        self.account_tree
+    /// Returns a set of staking APY data of an epoch
+    pub fn get_epoch_data(&self, epoch: Epoch) -> anyhow::Result<Option<PkApyMapping>> {
+        self.apy_tree
             .get(epoch.to_be_bytes())
             .context("could not fetch from database")?
             .map(|x| bincode::deserialize(&x))

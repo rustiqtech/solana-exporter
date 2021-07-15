@@ -3,11 +3,13 @@ use anyhow::anyhow;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use solana_client::rpc_client::RpcClient;
 use solana_runtime::bank::RewardType;
-use solana_sdk::account::Account;
 use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
+use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::{HashMap, HashSet};
 use std::u64;
+use log::debug;
+use solana_sdk::account::Account;
 
 pub mod caching;
 pub mod caching_metadata;
@@ -19,8 +21,9 @@ const MAX_EPOCH_LOOKBACK: u64 = 5;
 
 pub(crate) type PubkeyEpoch = (Pubkey, Epoch);
 type PkEpochRewardMap = HashMap<PubkeyEpoch, Reward>;
-type PkEpochAccountMap = HashMap<PubkeyEpoch, Option<Account>>;
+type PkEpochApyMap = HashMap<PubkeyEpoch, u64>;
 
+#[derive(Clone, Default, Debug, PartialOrd, PartialEq)]
 struct StakingApy {
     voter: String,
     percent: f64,
@@ -118,21 +121,21 @@ impl<'a> RewardsMonitor<'a> {
         epoch_duration: f64,
     ) -> anyhow::Result<HashSet<StakingApy>> {
         // Filling historical gaps
-        let (mut rewards, mut accounts) = self.fill_historical_epochs(current_epoch_info)?;
+        let (mut rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
         // Fill current epoch and find APY
-        self.fill_current_epoch_and_find_apy(current_epoch_info, &mut rewards, &mut accounts)
+        self.fill_current_epoch_and_find_apy(current_epoch_info, &mut rewards, &mut apys)
     }
 
-    /// Fills `rewards` and `accounts` with previous epochs' information, up to `MAX_EPOCH_LOOKBACK` epochs ago.
+    /// Fills `rewards` and `apys` with previous epochs' information, up to `MAX_EPOCH_LOOKBACK` epochs ago.
     fn fill_historical_epochs(
         &self,
         current_epoch_info: &EpochInfo,
-    ) -> anyhow::Result<(PkEpochRewardMap, PkEpochAccountMap)> {
+    ) -> anyhow::Result<(PkEpochRewardMap, PkEpochApyMap)> {
         let current_epoch = current_epoch_info.epoch;
 
         let mut rewards = HashMap::new();
-        let mut accounts = HashMap::new();
+        let mut apys = HashMap::new();
 
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
             // Historical rewards
@@ -143,17 +146,15 @@ impl<'a> RewardsMonitor<'a> {
                 rewards.insert((reward.pubkey.parse()?, epoch), reward);
             }
 
-            let historical_account = self.cache.get_epoch_data(epoch)?;
-            if let Some(historical_account) = historical_account {
-                accounts.extend(
-                    historical_account
-                        .into_iter()
-                        .map(|(p, oa)| ((p, epoch), oa)),
-                );
-            }
+            let historical_apys = self.cache.get_epoch_data(epoch)?;
+            apys.extend(
+                historical_apys
+                    .into_iter()
+                    .map(|(p, oa)| ((p, epoch), oa)),
+            );
         }
 
-        Ok((rewards, accounts))
+        Ok((rewards, apys))
     }
 
     /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC. The cache will be updated.
@@ -161,8 +162,7 @@ impl<'a> RewardsMonitor<'a> {
         &self,
         current_epoch_info: &EpochInfo,
         rewards: &mut PkEpochRewardMap,
-        // FIXME: Change type of this mapping
-        accounts: &mut PkEpochAccountMap,
+        apys: &mut PkEpochApyMap,
     ) -> anyhow::Result<HashSet<StakingApy>> {
         let current_epoch = current_epoch_info.epoch;
 
@@ -187,8 +187,7 @@ impl<'a> RewardsMonitor<'a> {
         // Fetched pubkeys from cache
         let cached_pubkeys = self
             .cache
-            .get_epoch_data(current_epoch)?
-            .unwrap_or_default();
+            .get_epoch_data(current_epoch)?;
 
         // Use cached pubkeys to find what keys we need to query
         let to_query = staking_rewards
@@ -199,28 +198,29 @@ impl<'a> RewardsMonitor<'a> {
             .cloned()
             .collect::<Vec<Pubkey>>(); // Use a Vec here to preserve ordering.
 
-        // Move cached pubkeys into accounts
-        accounts.extend(
+        // Move cached pubkeys into apys
+        apys.extend(
             cached_pubkeys
                 .into_iter()
                 .map(|(p, a)| ((p, current_epoch), a)),
         );
 
         if !to_query.is_empty() {
-            // Create empty hashmap
-            let mut pka: HashMap<(_, _), _> = to_query
-                .iter()
-                .map(|pubkey| ((*pubkey, current_epoch), None))
-                .collect::<HashMap<_, _>>();
+            let mut pka = HashMap::new();
 
+            // Seen voters are added here so that an APY calculation occurs is done only once
+            // for a given voter.
+            let mut seen_voters = vec![];
             // Chunk into 100
             for chunk in to_query.chunks(100) {
                 let account_infos = self.client.get_multiple_accounts(&chunk)?;
 
                 // Write to hashmap
-                // FIXME: Insert only APY data, calculate them here.
                 for (pubkey, account_info) in chunk.iter().zip(account_infos) {
-                    pka.insert((*pubkey, current_epoch), account_info);
+                    if let Some(account_info) = account_info {
+                        let staking_apy = calculate_staking_apy(&account_info, &mut seen_voters)?;
+                        pka.insert((*pubkey, current_epoch), staking_apy);
+                    }
                 }
 
                 let insert = pka
@@ -230,12 +230,11 @@ impl<'a> RewardsMonitor<'a> {
                     .collect::<HashMap<_, _>>();
 
                 // Write to cache in chunks of 100 at a time.
-                // FIXME: This writes all account state into database, which is inefficient. Refactor so that only APY data is written and `accounts` only stores APY data and drop account information here.
                 self.cache.add_epoch_data(current_epoch, insert)?;
             }
 
             // Extend accounts
-            accounts.extend(pka);
+            apys.extend(pka);
         }
 
         todo!("missing staking apy calculation using multiple epochs")
@@ -283,5 +282,39 @@ impl<'a> RewardsMonitor<'a> {
                 Err(anyhow!("no blocks found"))
             }
         }
+    }
+}
+
+/// Calculates the staking APY of an `AccountInfo` containing a `StakeState`.
+/// Returns the calculated APY while registering the delegated voter in `seen_voters`
+/// for later reference.
+fn calculate_staking_apy(
+    account_info: &Account,
+    seen_voters: &mut Vec<Pubkey>,
+) -> anyhow::Result<StakingApy> {
+    let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
+    if let Some(delegation) = stake_state.delegation() {
+        let voter = format!("{}", delegation.voter_pubkey);
+        if !seen_voters.contains(&delegation.voter_pubkey) && *lamports > 0 {
+            let lamports = *lamports as u64;
+            let prev_balance = post_balance - lamports;
+            let epoch_rate = lamports as f64 / prev_balance as f64;
+            let apr = epoch_rate / epoch_duration * 365.0;
+            let epochs_in_year = 365.0 / epoch_duration;
+            let apy = f64::powf(1.0 + apr / epochs_in_year, epochs_in_year) - 1.0;
+            debug!(
+                "Staking APY of {} is {:.4} (APR {:.4})",
+                voter,
+                apy * 100.0,
+                apr * 100.0
+            );
+            seen_voters.insert(delegation.voter_pubkey);
+            Ok(StakingApy {
+                voter,
+                percent: apy * 100.0,
+            })
+        }
+    } else {
+        return Err(anyhow!("account info does not contain delegation"));
     }
 }
