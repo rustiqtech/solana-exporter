@@ -73,8 +73,10 @@ impl<'a> RewardsMonitor<'a> {
     /// Exports reward metrics once an epoch.
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
-        // FIXME: do not skip calculations if epoch is in database!
-        // FIXME: Because it is possible that an epoch has been partially cached, this needs to be refactored.
+
+        // FIXME: Once multi-epoch APY has been calculated, we should cache the result of staking APYs since we do not expect them to vary during an epoch.
+        // The results should be stored to database, and loaded when the exporter starts, and invalidated when a new epoch is seen (and then recalculated).
+
         // if self.cache.seen_epoch(epoch)? {
         //     return Ok(());
         // }
