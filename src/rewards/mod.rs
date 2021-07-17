@@ -230,14 +230,15 @@ impl<'a> RewardsMonitor<'a> {
             // Write to hashmap
             for (reward, account_info) in chunk.iter().zip(account_infos) {
                 if let Some(account_info) = account_info {
-                    let StakingApy { voter, percent } = calculate_staking_apy(
+                    if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
                         3.0, /* FIXME: calculate */
                         reward.lamports as u64,
                         reward.post_balance,
-                    )?;
-                    pka.insert((voter, current_epoch), percent);
+                    )? {
+                        pka.insert((voter, current_epoch), percent);
+                    }
                 }
             }
 
@@ -311,7 +312,7 @@ fn calculate_staking_apy(
     epoch_duration: f64,
     lamports: u64,
     post_balance: u64,
-) -> anyhow::Result<StakingApy> {
+) -> anyhow::Result<Option<StakingApy>> {
     let stake_state: StakeState = bincode::deserialize(&account_info.data)?;
     if let Some(delegation) = stake_state.delegation() {
         let percent = if !seen_voters.contains(&delegation.voter_pubkey) && lamports > 0 {
@@ -331,11 +332,11 @@ fn calculate_staking_apy(
         } else {
             0.0
         };
-        Ok(StakingApy {
+        Ok(Some(StakingApy {
             voter: delegation.voter_pubkey,
             percent,
-        })
+        }))
     } else {
-        Err(anyhow!("account info does not contain delegation"))
+        Ok(None)
     }
 }
