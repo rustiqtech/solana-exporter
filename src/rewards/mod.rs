@@ -223,17 +223,19 @@ impl<'a> RewardsMonitor<'a> {
                 let account_infos = self.client.get_multiple_accounts(pubkeys.as_slice())?;
 
                 // Write to hashmap
-                for (reward, account_info) in chunk.iter().zip(account_infos) {
-                    if let Some(account_info) = account_info {
-                        if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
-                            &account_info,
-                            &mut seen_voters,
-                            3.0, /* FIXME: calculate */
-                            reward.lamports as u64,
-                            reward.post_balance,
-                        )? {
-                            pka.insert((voter, current_epoch), percent);
-                        }
+                for (reward, account_info) in chunk
+                    .iter()
+                    .zip(account_infos)
+                    .flat_map(|(r, oa)| oa.map(|a| (r, a)))
+                {
+                    if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
+                        &account_info,
+                        &mut seen_voters,
+                        3.0, /* FIXME: calculate */
+                        reward.lamports as u64,
+                        reward.post_balance,
+                    )? {
+                        pka.insert((voter, current_epoch), percent);
                     }
                 }
 
