@@ -8,7 +8,7 @@ use solana_sdk::account::Account;
 use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
 use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
 
 pub mod caching;
@@ -42,12 +42,20 @@ struct ValidatorReward {
     lamports: u64,
 }
 
+#[derive(Clone, Default, Debug, PartialOrd, PartialEq)]
+struct VoterApy {
+    current_apy: f64,
+    average_apy: f64,
+}
+
 /// The monitor of rewards paid to validators and delegators.
 pub struct RewardsMonitor<'a> {
     /// Shared Solana RPC client.
     client: &'a RpcClient,
-    /// Prometheus staking APY gauge.
-    staking_apys: &'a GaugeVec,
+    /// Prometheus current staking APY gauge.
+    current_staking_apy: &'a GaugeVec,
+    /// Prometheus average staking APY gauge.
+    average_staking_apy: &'a GaugeVec,
     /// Prometheus cumulative validator rewards gauge.
     validator_rewards: &'a IntGaugeVec,
     /// Caching database for rewards
@@ -58,13 +66,15 @@ impl<'a> RewardsMonitor<'a> {
     /// Initialises a new rewards monitor.
     pub fn new(
         client: &'a RpcClient,
-        staking_apys: &'a GaugeVec,
+        current_staking_apy: &'a GaugeVec,
+        average_staking_apy: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
         rewards_cache: &'a RewardsCache,
     ) -> Self {
         Self {
             client,
-            staking_apys,
+            current_staking_apy,
+            average_staking_apy,
             validator_rewards,
             cache: rewards_cache,
         }
@@ -85,10 +95,20 @@ impl<'a> RewardsMonitor<'a> {
         if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
-            for (voter, percent) in staking_apys {
-                self.staking_apys
+            for (
+                voter,
+                VoterApy {
+                    current_apy,
+                    average_apy,
+                },
+            ) in staking_apys
+            {
+                self.current_staking_apy
                     .get_metric_with_label_values(&[&format!("{}", voter)])
-                    .map(|c| c.set(percent))?;
+                    .map(|c| c.set(current_apy))?;
+                self.average_staking_apy
+                    .get_metric_with_label_values(&[&format!("{}", voter)])
+                    .map(|c| c.set(average_apy))?;
             }
 
             let validator_rewards = self
@@ -124,7 +144,7 @@ impl<'a> RewardsMonitor<'a> {
     fn calculate_staking_rewards(
         &self,
         current_epoch_info: &EpochInfo,
-    ) -> anyhow::Result<HashMap<Pubkey, f64>> {
+    ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
         // Filling historical gaps
         let (mut _rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
@@ -167,7 +187,7 @@ impl<'a> RewardsMonitor<'a> {
         current_epoch_info: &EpochInfo,
         // rewards: &mut PkEpochRewardMap,
         apys: &mut PkEpochApyMap,
-    ) -> anyhow::Result<HashMap<Pubkey, f64>> {
+    ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
         let current_epoch = current_epoch_info.epoch;
 
         let current_rewards = self
@@ -255,31 +275,44 @@ impl<'a> RewardsMonitor<'a> {
             apys.extend(pka);
         }
 
-        // A mapping of pubkeys to pairs (APY, number of days over which APY was computed).
-        let mut avg_apys: HashMap<Pubkey, (f64, f64)> = HashMap::new();
-        // Calculate average APY over multiple epochs.
+        // A mapping of pubkeys to APYs in the preceding `MAX_EPOCH_LOOKBACK` epochs.
+        let mut voter_epoch_apys: HashMap<Pubkey, BTreeMap<Epoch, f64>> = HashMap::new();
+        // Fill in the epoch APYs of voters.
         for ((pubkey, epoch), apy) in apys {
-            let epoch_duration = self.epoch_duration_days(*epoch);
-            avg_apys
+            voter_epoch_apys
                 .entry(*pubkey)
-                .and_modify(|(avg_apy, days)| {
-                    let new_duration = *days + epoch_duration;
-                    if new_duration != 0.0 {
-                        *avg_apy = (*avg_apy * *days + *apy * epoch_duration) / new_duration;
-                        *days = new_duration;
-                    } else {
-                        // Fall back in case of incorrect epoch durations.
-                        *avg_apy = 0.0;
-                        *days = 0.0;
-                    }
+                .and_modify(|epoch_apys| {
+                    epoch_apys.insert(*epoch, *apy);
                 })
-                .or_insert((*apy, epoch_duration));
+                .or_insert_with(|| std::iter::once((*epoch, *apy)).collect());
         }
-        // Forget total durations of APY calculations and return the resulting average APY.
-        Ok(avg_apys
-            .into_iter()
-            .map(|(pubkey, (apy, _))| (pubkey, apy))
-            .collect())
+
+        // TODO: Update this part according to changes to `epoch_duration_days`. A local map could
+        // become redundant if the struct caches it in a field, for example.
+        let epoch_durations: BTreeMap<_, _> = (current_epoch - MAX_EPOCH_LOOKBACK + 1
+            ..=current_epoch)
+            .map(|epoch| (epoch, self.epoch_duration_days(epoch)))
+            .collect();
+        let duration_max_epoch_lookback: f64 = epoch_durations.values().sum();
+
+        let mut voter_apys = HashMap::new();
+        for (pubkey, epoch_apys) in voter_epoch_apys {
+            let mut total_apy = 0.0;
+            for (epoch, duration) in &epoch_durations {
+                let apy = *epoch_apys.get(epoch).unwrap_or(&0.0);
+                total_apy += apy * duration;
+            }
+            let average_apy = total_apy / duration_max_epoch_lookback;
+            let current_apy = *epoch_apys.get(&current_epoch).unwrap_or(&0.0);
+            voter_apys.insert(
+                pubkey,
+                VoterApy {
+                    current_apy,
+                    average_apy,
+                },
+            );
+        }
+        Ok(voter_apys)
     }
 
     // FIXME: calculate based on cached data and cache calculations for easy retrieval.

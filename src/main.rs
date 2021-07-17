@@ -144,7 +144,8 @@ and then put real values there.",
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
-        &gauges.staking_apy,
+        &gauges.current_staking_apy,
+        &gauges.average_staking_apy,
         &gauges.validator_rewards,
         &rewards_cache,
     );
