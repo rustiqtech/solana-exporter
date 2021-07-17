@@ -175,10 +175,8 @@ impl<'a> RewardsMonitor<'a> {
         // Extract into staking rewards and validator rewards.
         let staking_rewards = current_rewards.into_iter().filter_map(|r| {
             if r.reward_type != Some(RewardType::Staking) {
-                return None;
-            }
-
-            if let Ok(pubkey) = r.pubkey.parse() {
+                None
+            } else if let Ok(pubkey) = r.pubkey.parse() {
                 Some(StakingReward {
                     pubkey,
                     lamports: r.lamports,
@@ -213,47 +211,45 @@ impl<'a> RewardsMonitor<'a> {
                 .map(|(p, a)| ((p, current_epoch), a)),
         );
 
-        if to_query.is_empty() {
-            return Ok(HashSet::new());
-        }
+        if !to_query.is_empty() {
+            let mut pka = HashMap::new();
 
-        let mut pka = HashMap::new();
+            // Seen voters are added here so that an APY calculation occurs is done only once
+            // for a given voter.
+            let mut seen_voters = BTreeSet::new();
+            // Chunk into 100
+            for chunk in to_query.chunks(100) {
+                let pubkeys: Vec<_> = chunk.iter().map(|r| r.pubkey).collect();
+                let account_infos = self.client.get_multiple_accounts(pubkeys.as_slice())?;
 
-        // Seen voters are added here so that an APY calculation occurs is done only once
-        // for a given voter.
-        let mut seen_voters = BTreeSet::new();
-        // Chunk into 100
-        for chunk in to_query.chunks(100) {
-            let pubkeys: Vec<_> = chunk.iter().map(|r| r.pubkey).collect();
-            let account_infos = self.client.get_multiple_accounts(pubkeys.as_slice())?;
-
-            // Write to hashmap
-            for (reward, account_info) in chunk.iter().zip(account_infos) {
-                if let Some(account_info) = account_info {
-                    if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
-                        &account_info,
-                        &mut seen_voters,
-                        3.0, /* FIXME: calculate */
-                        reward.lamports as u64,
-                        reward.post_balance,
-                    )? {
-                        pka.insert((voter, current_epoch), percent);
+                // Write to hashmap
+                for (reward, account_info) in chunk.iter().zip(account_infos) {
+                    if let Some(account_info) = account_info {
+                        if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
+                            &account_info,
+                            &mut seen_voters,
+                            3.0, /* FIXME: calculate */
+                            reward.lamports as u64,
+                            reward.post_balance,
+                        )? {
+                            pka.insert((voter, current_epoch), percent);
+                        }
                     }
                 }
+
+                let insert = pka
+                    .clone()
+                    .into_iter()
+                    .map(|((pk, _), a)| (pk, a))
+                    .collect();
+
+                // Write to cache in chunks of 100 at a time.
+                self.cache.add_epoch_data(current_epoch, insert)?;
             }
 
-            let insert = pka
-                .clone()
-                .into_iter()
-                .map(|((pk, _), a)| (pk, a))
-                .collect();
-
-            // Write to cache in chunks of 100 at a time.
-            self.cache.add_epoch_data(current_epoch, insert)?;
+            // Extend accounts
+            apys.extend(pka);
         }
-
-        // Extend accounts
-        apys.extend(pka);
 
         todo!("missing staking apy calculation using multiple epochs")
     }
