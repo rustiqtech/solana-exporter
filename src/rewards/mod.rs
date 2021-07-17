@@ -83,10 +83,10 @@ impl<'a> RewardsMonitor<'a> {
         if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
-            for s in staking_apys {
+            for (voter, percent) in staking_apys {
                 self.staking_apys
-                    .get_metric_with_label_values(&[&format!("{}", s.voter)])
-                    .map(|c| c.set(s.percent))?;
+                    .get_metric_with_label_values(&[&format!("{}", voter)])
+                    .map(|c| c.set(percent))?;
             }
 
             let validator_rewards = self
@@ -122,7 +122,7 @@ impl<'a> RewardsMonitor<'a> {
     fn calculate_staking_rewards(
         &self,
         current_epoch_info: &EpochInfo,
-    ) -> anyhow::Result<HashSet<StakingApy>> {
+    ) -> anyhow::Result<HashMap<Pubkey, f64>> {
         // Filling historical gaps
         let (mut _rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
@@ -165,7 +165,7 @@ impl<'a> RewardsMonitor<'a> {
         current_epoch_info: &EpochInfo,
         // rewards: &mut PkEpochRewardMap,
         apys: &mut PkEpochApyMap,
-    ) -> anyhow::Result<HashSet<StakingApy>> {
+    ) -> anyhow::Result<HashMap<Pubkey, f64>> {
         let current_epoch = current_epoch_info.epoch;
 
         let current_rewards = self
@@ -231,7 +231,7 @@ impl<'a> RewardsMonitor<'a> {
                     if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
-                        3.0, /* FIXME: calculate */
+                        self.epoch_duration_days(current_epoch),
                         reward.lamports as u64,
                         reward.post_balance,
                     )? {
@@ -253,7 +253,36 @@ impl<'a> RewardsMonitor<'a> {
             apys.extend(pka);
         }
 
-        todo!("missing staking apy calculation using multiple epochs")
+        // A mapping of pubkeys to pairs (APY, number of days over which APY was computed).
+        let mut avg_apys: HashMap<Pubkey, (f64, f64)> = HashMap::new();
+        // Calculate average APY over multiple epochs.
+        for ((pubkey, epoch), apy) in apys {
+            let epoch_duration = self.epoch_duration_days(*epoch);
+            avg_apys
+                .entry(*pubkey)
+                .and_modify(|(avg_apy, days)| {
+                    let new_duration = *days + epoch_duration;
+                    if new_duration != 0.0 {
+                        *avg_apy = (*avg_apy * *days + *apy * epoch_duration) / new_duration;
+                        *days = new_duration;
+                    } else {
+                        // Fall back in case of incorrect epoch durations.
+                        *avg_apy = 0.0;
+                        *days = 0.0;
+                    }
+                })
+                .or_insert((*apy, epoch_duration));
+        }
+        // Forget total durations of APY calculations and return the resulting average APY.
+        Ok(avg_apys
+            .into_iter()
+            .map(|(pubkey, (apy, _))| (pubkey, apy))
+            .collect())
+    }
+
+    // FIXME: calculate based on cached data and cache calculations for easy retrieval.
+    fn epoch_duration_days(&self, _epoch: Epoch) -> f64 {
+        3.0
     }
 
     /// Gets the rewards for `epoch` given the current `epoch_info`, either from RPC or cache. The cache will be updated.
