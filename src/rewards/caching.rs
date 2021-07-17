@@ -1,12 +1,10 @@
 use anyhow::Context;
-
-use solana_sdk::account::Account;
 use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::HashMap;
 
-pub type PkApyMapping = HashMap<Pubkey, u64>;
+pub type PkApyMapping = HashMap<Pubkey, f64>;
 
 /// Name of the caching database.
 pub const EPOCH_REWARDS_CACHE_TREE_NAME: &str = "epoch_rewards_credit_cache";
@@ -20,7 +18,7 @@ pub struct RewardsCache {
 
 impl RewardsCache {
     /// Creates a new cache using a tree.
-    pub fn new(epoch_rewards_tree: sled::Tree, account_tree: sled::Tree) -> Self {
+    pub fn new(epoch_rewards_tree: sled::Tree, apy_tree: sled::Tree) -> Self {
         Self {
             epoch_rewards_tree,
             apy_tree,
@@ -48,12 +46,8 @@ impl RewardsCache {
     }
 
     /// Adds a set of staking APY data of an epoch.
-    pub fn add_epoch_data(
-        &self,
-        epoch: Epoch,
-        apys: PkApyMapping,
-    ) -> anyhow::Result<()> {
-        let mut mapping = self.get_epoch_data(epoch)?;
+    pub fn add_epoch_data(&self, epoch: Epoch, apys: PkApyMapping) -> anyhow::Result<()> {
+        let mut mapping = self.get_epoch_apy(epoch)?.unwrap_or_default();
 
         mapping.extend(apys.into_iter());
 
@@ -64,7 +58,7 @@ impl RewardsCache {
     }
 
     /// Returns a set of staking APY data of an epoch
-    pub fn get_epoch_data(&self, epoch: Epoch) -> anyhow::Result<Option<PkApyMapping>> {
+    pub fn get_epoch_apy(&self, epoch: Epoch) -> anyhow::Result<Option<PkApyMapping>> {
         self.apy_tree
             .get(epoch.to_be_bytes())
             .context("could not fetch from database")?
