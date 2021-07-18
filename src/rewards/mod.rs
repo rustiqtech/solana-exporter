@@ -84,14 +84,6 @@ impl<'a> RewardsMonitor<'a> {
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
 
-        // FIXME: Once multi-epoch APY has been calculated, we should cache the result of staking APYs since we do not expect them to vary during an epoch.
-        // The results should be stored to database, and loaded when the exporter starts, and invalidated when a new epoch is seen (and then recalculated).
-
-        // if self.cache.seen_epoch(epoch)? {
-        //     return Ok(());
-        // }
-
-        // FIXME: If we can get Rewards here then validator_rewards should always be Some.
         if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
@@ -208,14 +200,6 @@ impl<'a> RewardsMonitor<'a> {
                 None
             }
         });
-
-        // // Copy staking_rewards into rewards
-        // for staking_reward in staking_rewards.iter().cloned() {
-        //     rewards.insert(
-        //         (staking_reward.pubkey, current_epoch),
-        //         staking_reward.clone(),
-        //     );
-        // }
 
         // Fetched pubkeys from cache
         let cached_apys = self.cache.get_epoch_apy(current_epoch)?.unwrap_or_default();
