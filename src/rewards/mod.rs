@@ -10,6 +10,7 @@ use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
+use time::Duration;
 
 pub mod caching;
 
@@ -236,7 +237,7 @@ impl<'a> RewardsMonitor<'a> {
                     if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
-                        self.epoch_duration_days(current_epoch)?,
+                        self.epoch_duration_days(current_epoch, current_epoch_info)?,
                         reward.lamports as u64,
                         reward.post_balance,
                     )? {
@@ -273,7 +274,7 @@ impl<'a> RewardsMonitor<'a> {
         // TODO: Update this part according to changes to `epoch_duration_days`. A local map could
         // become redundant if the struct caches it in a field, for example.
         let epoch_durations = (current_epoch - MAX_EPOCH_LOOKBACK + 1..=current_epoch)
-            .map(|epoch| Ok((epoch, self.epoch_duration_days(epoch)?)))
+            .map(|epoch| Ok((epoch, self.epoch_duration_days(epoch, current_epoch_info)?)))
             .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
         let duration_max_epoch_lookback: f64 = epoch_durations.values().sum();
 
@@ -297,14 +298,25 @@ impl<'a> RewardsMonitor<'a> {
         Ok(voter_apys)
     }
 
-    fn epoch_duration_days(&self, epoch: Epoch) -> anyhow::Result<f64> {
+    fn epoch_duration_days(&self, epoch: Epoch, epoch_info: &EpochInfo) -> anyhow::Result<f64> {
         if let Some(length) = self.cache.get_epoch_length(epoch)? {
             Ok(length)
         } else {
-            // TODO: find the number of days in epoch
-            // FIXME: Remove the placeholder
-            self.cache.add_epoch_length(epoch, 3.0)?;
-            Ok(3.0)
+            let days_in_epoch = {
+                let start = self
+                    .client
+                    .get_block(epoch * epoch_info.slots_in_epoch)?
+                    .block_time;
+                let end = self
+                    .client
+                    .get_block((epoch + 1) * epoch_info.slots_in_epoch)?
+                    .block_time;
+                // FIXME: What if `end` or `start` are None? When is that possible?
+                Duration::new(end.unwrap() - start.unwrap(), 0).whole_seconds() as f64 / 86400_f64
+            };
+
+            self.cache.add_epoch_length(epoch, days_in_epoch)?;
+            Ok(days_in_epoch)
         }
     }
 
