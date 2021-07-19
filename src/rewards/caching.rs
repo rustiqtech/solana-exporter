@@ -6,23 +6,48 @@ use std::collections::HashMap;
 
 pub type PkApyMapping = HashMap<Pubkey, f64>;
 
-/// Name of the caching database.
-pub const EPOCH_REWARDS_CACHE_TREE_NAME: &str = "epoch_rewards_credit_cache";
-pub const ACCOUNT_CACHE_TREE_NAME: &str = "account_cache";
+pub const EPOCH_REWARDS_TREE_NAME: &str = "epoch_rewards";
+pub const APY_TREE_NAME: &str = "apy";
+pub const EPOCH_LENGTH_NAME: &str = "epoch_length";
 
 /// A caching database for vote accounts' credit growth
 pub struct RewardsCache {
     epoch_rewards_tree: sled::Tree,
     apy_tree: sled::Tree,
+    epoch_length_tree: sled::Tree,
 }
 
 impl RewardsCache {
     /// Creates a new cache using a tree.
-    pub fn new(epoch_rewards_tree: sled::Tree, apy_tree: sled::Tree) -> Self {
+    pub fn new(
+        epoch_rewards_tree: sled::Tree,
+        apy_tree: sled::Tree,
+        epoch_length_tree: sled::Tree,
+    ) -> Self {
         Self {
             epoch_rewards_tree,
             apy_tree,
+            epoch_length_tree,
         }
+    }
+
+    /// Adds the length of an epoch.
+    pub fn add_epoch_length(&self, epoch: Epoch, length: f64) -> anyhow::Result<()> {
+        self.epoch_length_tree
+            .insert(epoch.to_be_bytes(), bincode::serialize(&length)?)
+            .context("could not insert epoch length into database")?;
+
+        Ok(())
+    }
+
+    /// Returns the length of an epoch
+    pub fn get_epoch_length(&self, epoch: Epoch) -> anyhow::Result<Option<f64>> {
+        self.epoch_length_tree
+            .get(epoch.to_be_bytes())
+            .context("could not fetch epoch length from database")?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()
+            .context("could not deserialize fetched epoch length")
     }
 
     /// Adds a set of rewards of an epoch.

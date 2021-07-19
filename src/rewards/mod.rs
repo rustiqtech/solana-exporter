@@ -236,7 +236,7 @@ impl<'a> RewardsMonitor<'a> {
                     if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
-                        self.epoch_duration_days(current_epoch),
+                        self.epoch_duration_days(current_epoch)?,
                         reward.lamports as u64,
                         reward.post_balance,
                     )? {
@@ -272,10 +272,9 @@ impl<'a> RewardsMonitor<'a> {
 
         // TODO: Update this part according to changes to `epoch_duration_days`. A local map could
         // become redundant if the struct caches it in a field, for example.
-        let epoch_durations: BTreeMap<_, _> = (current_epoch - MAX_EPOCH_LOOKBACK + 1
-            ..=current_epoch)
-            .map(|epoch| (epoch, self.epoch_duration_days(epoch)))
-            .collect();
+        let epoch_durations = (current_epoch - MAX_EPOCH_LOOKBACK + 1..=current_epoch)
+            .map(|epoch| Ok((epoch, self.epoch_duration_days(epoch)?)))
+            .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
         let duration_max_epoch_lookback: f64 = epoch_durations.values().sum();
 
         let mut voter_apys = HashMap::new();
@@ -298,9 +297,15 @@ impl<'a> RewardsMonitor<'a> {
         Ok(voter_apys)
     }
 
-    // FIXME: calculate based on cached data and cache calculations for easy retrieval.
-    fn epoch_duration_days(&self, _epoch: Epoch) -> f64 {
-        3.0
+    fn epoch_duration_days(&self, epoch: Epoch) -> anyhow::Result<f64> {
+        if let Some(length) = self.cache.get_epoch_length(epoch)? {
+            Ok(length)
+        } else {
+            // TODO: find the number of days in epoch
+            // FIXME: Remove the placeholder
+            self.cache.add_epoch_length(epoch, 3.0)?;
+            Ok(3.0)
+        }
     }
 
     /// Gets the rewards for `epoch` given the current `epoch_info`, either from RPC or cache. The cache will be updated.
