@@ -1,9 +1,9 @@
 use anyhow::Context;
+use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 
 pub type PubkeyVoterApyMapping = HashMap<Pubkey, (Pubkey, f64)>;
 
@@ -99,8 +99,7 @@ impl RewardsCache {
         }
         if mapping.is_empty() {
             Ok(None)
-        }
-        else {
+        } else {
             Ok(Some(mapping))
         }
     }
