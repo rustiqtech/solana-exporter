@@ -10,7 +10,6 @@ use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
-use time::Duration;
 
 pub mod caching;
 
@@ -299,20 +298,48 @@ impl<'a> RewardsMonitor<'a> {
     }
 
     fn epoch_duration_days(&self, epoch: Epoch, epoch_info: &EpochInfo) -> anyhow::Result<f64> {
+        // TODO: Use some extrapolation magic to find out the epoch length if it's the current epoch
+        // If it's the current epoch we can't use the next epoch.
+        if epoch == epoch_info.epoch {
+            return Ok(3.0);
+        }
+
         if let Some(length) = self.cache.get_epoch_length(epoch)? {
             Ok(length)
         } else {
+            debug!("Finding epoch {}", epoch);
             let days_in_epoch = {
-                let start = self
+                let start_timestamp = self
                     .client
-                    .get_block(epoch * epoch_info.slots_in_epoch)?
-                    .block_time;
-                let end = self
+                    .get_blocks(
+                        epoch * epoch_info.slots_in_epoch,
+                        Some((epoch * epoch_info.slots_in_epoch) + SLOT_OFFSET),
+                    )?
+                    .get(0)
+                    .cloned()
+                    .map(|slot| self.client.get_block(slot))
+                    .transpose()?
+                    .and_then(|x| x.block_time);
+
+                let end_timestamp = self
                     .client
-                    .get_block((epoch + 1) * epoch_info.slots_in_epoch)?
-                    .block_time;
-                // FIXME: What if `end` or `start` are None? When is that possible?
-                Duration::new(end.unwrap() - start.unwrap(), 0).whole_seconds() as f64 / 86400_f64
+                    .get_blocks(
+                        (epoch + 1) * epoch_info.slots_in_epoch,
+                        Some(((epoch + 1) * epoch_info.slots_in_epoch) + SLOT_OFFSET),
+                    )?
+                    .get(0)
+                    .cloned()
+                    .map(|slot| self.client.get_block(slot))
+                    .transpose()?
+                    .and_then(|x| x.block_time);
+
+                if let (Some(start_timestamp), Some(end_timestamp)) =
+                    (start_timestamp, end_timestamp)
+                {
+                    (end_timestamp - start_timestamp) as f64 / 86_400_f64
+                } else {
+                    3.0
+                }
             };
 
             self.cache.add_epoch_length(epoch, days_in_epoch)?;
