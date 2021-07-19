@@ -12,7 +12,6 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
 
 pub mod caching;
-pub mod caching_metadata;
 
 const SLOT_OFFSET: u64 = 20;
 
