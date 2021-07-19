@@ -3,12 +3,19 @@ use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-pub type PubkeyOwnerApyMapping = HashMap<Pubkey, (Pubkey, f64)>;
+pub type PubkeyVoterApyMapping = HashMap<Pubkey, (Pubkey, f64)>;
 
 pub const EPOCH_REWARDS_TREE_NAME: &str = "epoch_rewards";
 pub const APY_TREE_NAME: &str = "apy";
 pub const EPOCH_LENGTH_NAME: &str = "epoch_length";
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
+struct ApyTreeKey(Epoch, Pubkey);
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
+struct ApyTreeValue(Pubkey, f64);
 
 /// A caching database for vote accounts' credit growth
 pub struct RewardsCache {
@@ -71,24 +78,30 @@ impl RewardsCache {
     }
 
     /// Adds a set of staking APY data of an epoch.
-    pub fn add_epoch_data(&self, epoch: Epoch, apys: PubkeyOwnerApyMapping) -> anyhow::Result<()> {
-        let mut mapping = self.get_epoch_apy(epoch)?.unwrap_or_default();
-
-        mapping.extend(apys.into_iter());
-
-        self.apy_tree
-            .insert(epoch.to_be_bytes(), bincode::serialize(&mapping)?)
-            .context("could not insert new APY data into database")?;
+    pub fn add_epoch_data(&self, epoch: Epoch, apys: PubkeyVoterApyMapping) -> anyhow::Result<()> {
+        for (pubkey, (voter, apy)) in apys {
+            let key = bincode::serialize(&ApyTreeKey(epoch, pubkey))?;
+            self.apy_tree
+                .insert(key, bincode::serialize(&ApyTreeValue(voter, apy))?)
+                .context("could not insert APY data into database")?;
+        }
         Ok(())
     }
 
     /// Returns a set of staking APY data of an epoch
-    pub fn get_epoch_apy(&self, epoch: Epoch) -> anyhow::Result<Option<PubkeyOwnerApyMapping>> {
-        self.apy_tree
-            .get(epoch.to_be_bytes())
-            .context("could not fetch from database")?
-            .map(|x| bincode::deserialize(&x))
-            .transpose()
-            .context("could not deserialize fetched data")
+    pub fn get_epoch_apy(&self, epoch: Epoch) -> anyhow::Result<Option<PubkeyVoterApyMapping>> {
+        let mut mapping = PubkeyVoterApyMapping::new();
+        for kv in self.apy_tree.scan_prefix(bincode::serialize(&epoch)?) {
+            let (k, v) = kv?;
+            let k: ApyTreeKey = bincode::deserialize(&k)?;
+            let v: ApyTreeValue = bincode::deserialize(&v)?;
+            mapping.insert(k.1, (v.0, v.1));
+        }
+        if mapping.is_empty() {
+            Ok(None)
+        }
+        else {
+            Ok(Some(mapping))
+        }
     }
 }
