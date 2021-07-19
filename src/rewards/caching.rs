@@ -4,7 +4,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::HashMap;
 
-pub type PkApyMapping = HashMap<Pubkey, f64>;
+pub type PubkeyOwnerApyMapping = HashMap<Pubkey, (Pubkey, f64)>;
 
 pub const EPOCH_REWARDS_TREE_NAME: &str = "epoch_rewards";
 pub const APY_TREE_NAME: &str = "apy";
@@ -71,7 +71,7 @@ impl RewardsCache {
     }
 
     /// Adds a set of staking APY data of an epoch.
-    pub fn add_epoch_data(&self, epoch: Epoch, apys: PkApyMapping) -> anyhow::Result<()> {
+    pub fn add_epoch_data(&self, epoch: Epoch, apys: PubkeyOwnerApyMapping) -> anyhow::Result<()> {
         let mut mapping = self.get_epoch_apy(epoch)?.unwrap_or_default();
 
         mapping.extend(apys.into_iter());
@@ -83,7 +83,7 @@ impl RewardsCache {
     }
 
     /// Returns a set of staking APY data of an epoch
-    pub fn get_epoch_apy(&self, epoch: Epoch) -> anyhow::Result<Option<PkApyMapping>> {
+    pub fn get_epoch_apy(&self, epoch: Epoch) -> anyhow::Result<Option<PubkeyOwnerApyMapping>> {
         self.apy_tree
             .get(epoch.to_be_bytes())
             .context("could not fetch from database")?

@@ -18,9 +18,9 @@ const SLOT_OFFSET: u64 = 20;
 /// Maximum number of epochs to look back, INCLUSIVE of the current epoch.
 const MAX_EPOCH_LOOKBACK: u64 = 5;
 
-pub(crate) type PubkeyEpoch = (Pubkey, Epoch);
-type PkEpochRewardMap = HashMap<PubkeyEpoch, Reward>;
-type PkEpochApyMap = HashMap<PubkeyEpoch, f64>;
+pub(crate) type VoterEpoch = (Pubkey, Epoch);
+type VoterEpochRewardMap = HashMap<VoterEpoch, Reward>;
+type VoterEpochApyMap = HashMap<VoterEpoch, f64>;
 
 #[derive(Clone, Default, Debug, PartialOrd, PartialEq)]
 struct StakingApy {
@@ -147,7 +147,7 @@ impl<'a> RewardsMonitor<'a> {
     fn fill_historical_epochs(
         &self,
         current_epoch_info: &EpochInfo,
-    ) -> anyhow::Result<(PkEpochRewardMap, PkEpochApyMap)> {
+    ) -> anyhow::Result<(VoterEpochRewardMap, VoterEpochApyMap)> {
         let current_epoch = current_epoch_info.epoch;
 
         let mut rewards = HashMap::new();
@@ -163,7 +163,11 @@ impl<'a> RewardsMonitor<'a> {
             }
 
             let historical_apys = self.cache.get_epoch_apy(epoch)?.unwrap_or_default();
-            apys.extend(historical_apys.into_iter().map(|(p, a)| ((p, epoch), a)));
+            apys.extend(
+                historical_apys
+                    .into_iter()
+                    .map(|(_, (voter, apy))| ((voter, epoch), apy)),
+            );
         }
 
         Ok((rewards, apys))
@@ -177,7 +181,7 @@ impl<'a> RewardsMonitor<'a> {
         &self,
         current_epoch_info: &EpochInfo,
         // rewards: &mut PkEpochRewardMap,
-        apys: &mut PkEpochApyMap,
+        apys: &mut VoterEpochApyMap,
     ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
         let current_epoch = current_epoch_info.epoch;
 
@@ -209,15 +213,15 @@ impl<'a> RewardsMonitor<'a> {
             .filter(|r| !cached_pubkeys.contains(&r.pubkey))
             .collect();
 
-        // Move cached pubkeys into apys
+        // Move cached pubkeys into APYs by voter
         apys.extend(
             cached_apys
                 .into_iter()
-                .map(|(p, a)| ((p, current_epoch), a)),
+                .map(|(_, (voter, apy))| ((voter, current_epoch), apy)),
         );
 
         if !to_query.is_empty() {
-            let mut pka = HashMap::new();
+            let mut queried = HashMap::new();
 
             // Seen voters are added here so that an APY calculation occurs is done only once
             // for a given voter.
@@ -225,14 +229,16 @@ impl<'a> RewardsMonitor<'a> {
             // Chunk into 100
             for chunk in to_query.chunks(100) {
                 let pubkeys: Vec<_> = chunk.iter().map(|r| r.pubkey).collect();
+                debug!("Getting multiple accounts");
                 let account_infos = self.client.get_multiple_accounts(pubkeys.as_slice())?;
 
-                // Write to hashmap
+                // For each response in chunk
                 for (reward, account_info) in chunk
                     .iter()
                     .zip(account_infos)
                     .flat_map(|(r, oa)| oa.map(|a| (r, a)))
                 {
+                    // Calculate APY
                     if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
@@ -240,30 +246,29 @@ impl<'a> RewardsMonitor<'a> {
                         reward.lamports as u64,
                         reward.post_balance,
                     )? {
-                        pka.insert((voter, current_epoch), percent);
+                        // Insert reward pubkey and voter
+                        queried.insert(reward.pubkey, (voter, percent));
                     }
                 }
 
-                let insert = pka
-                    .clone()
-                    .into_iter()
-                    .map(|((pk, _), a)| (pk, a))
-                    .collect();
-
                 // Write to cache in chunks of 100 at a time.
-                self.cache.add_epoch_data(current_epoch, insert)?;
+                self.cache.add_epoch_data(current_epoch, queried.clone())?;
             }
 
-            // Extend accounts
-            apys.extend(pka);
+            // Extend accounts by voter
+            apys.extend(
+                queried
+                    .into_iter()
+                    .map(|(_, (voter, percent))| ((voter, current_epoch), percent)),
+            );
         }
 
         // A mapping of pubkeys to APYs in the preceding `MAX_EPOCH_LOOKBACK` epochs.
         let mut voter_epoch_apys: HashMap<Pubkey, BTreeMap<Epoch, f64>> = HashMap::new();
         // Fill in the epoch APYs of voters.
-        for ((pubkey, epoch), apy) in apys {
+        for ((voter, epoch), apy) in apys {
             voter_epoch_apys
-                .entry(*pubkey)
+                .entry(*voter)
                 .and_modify(|epoch_apys| {
                     epoch_apys.insert(*epoch, *apy);
                 })
@@ -278,7 +283,7 @@ impl<'a> RewardsMonitor<'a> {
         let duration_max_epoch_lookback: f64 = epoch_durations.values().sum();
 
         let mut voter_apys = HashMap::new();
-        for (pubkey, epoch_apys) in voter_epoch_apys {
+        for (voter, epoch_apys) in voter_epoch_apys {
             let mut total_apy = 0.0;
             for (epoch, duration) in &epoch_durations {
                 let apy = *epoch_apys.get(epoch).unwrap_or(&0.0);
@@ -287,7 +292,7 @@ impl<'a> RewardsMonitor<'a> {
             let average_apy = total_apy / duration_max_epoch_lookback;
             let current_apy = *epoch_apys.get(&current_epoch).unwrap_or(&0.0);
             voter_apys.insert(
-                pubkey,
+                voter,
                 VoterApy {
                     current_apy,
                     average_apy,
