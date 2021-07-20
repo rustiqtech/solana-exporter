@@ -3,12 +3,16 @@ use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{Reward, Rewards};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-pub type PubkeyVoterApyMapping = HashMap<Pubkey, (Pubkey, f64)>;
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct VoterKey(Pubkey, Epoch);
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct VoterValue(pub u64, pub u64);
 
 pub const EPOCH_REWARDS_TREE_NAME: &str = "epoch_rewards";
-pub const APY_TREE_NAME: &str = "apy";
+pub const APY_TREE_NAME: &str = "voter";
 pub const EPOCH_LENGTH_NAME: &str = "epoch_length";
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
@@ -20,7 +24,7 @@ struct ApyTreeValue(Pubkey, f64);
 /// A caching database for vote accounts' credit growth
 pub struct RewardsCache {
     epoch_rewards_tree: sled::Tree,
-    apy_tree: sled::Tree,
+    voter_tree: sled::Tree,
     epoch_length_tree: sled::Tree,
 }
 
@@ -28,12 +32,12 @@ impl RewardsCache {
     /// Creates a new cache using a tree.
     pub fn new(
         epoch_rewards_tree: sled::Tree,
-        apy_tree: sled::Tree,
+        voter_tree: sled::Tree,
         epoch_length_tree: sled::Tree,
     ) -> Self {
         Self {
             epoch_rewards_tree,
-            apy_tree,
+            voter_tree,
             epoch_length_tree,
         }
     }
@@ -77,30 +81,37 @@ impl RewardsCache {
             .context("could not deserialize fetched epoch rewards")
     }
 
-    /// Adds a set of staking APY data of an epoch.
-    pub fn add_epoch_data(&self, epoch: Epoch, apys: PubkeyVoterApyMapping) -> anyhow::Result<()> {
-        for (pubkey, (voter, apy)) in apys {
-            let key = bincode::serialize(&ApyTreeKey(epoch, pubkey))?;
-            self.apy_tree
-                .insert(key, bincode::serialize(&ApyTreeValue(voter, apy))?)
-                .context("could not insert APY data into database")?;
+    pub fn add_voter_history(
+        &self,
+        vote_pubkey: &Pubkey,
+        credits: &[(Epoch, u64, u64)],
+    ) -> anyhow::Result<()> {
+        for (epoch, credits, previous_credits) in credits {
+            let key = bincode::serialize(&VoterKey(*vote_pubkey, *epoch))?;
+            self.voter_tree
+                .insert(
+                    key,
+                    bincode::serialize(&VoterValue(*credits, *previous_credits))?,
+                )
+                .context("could not insert voter credits into database")?;
         }
+
         Ok(())
     }
 
-    /// Returns a set of staking APY data of an epoch
-    pub fn get_epoch_apy(&self, epoch: Epoch) -> anyhow::Result<Option<PubkeyVoterApyMapping>> {
-        let mut mapping = PubkeyVoterApyMapping::new();
-        for kv in self.apy_tree.scan_prefix(bincode::serialize(&epoch)?) {
+    pub fn get_voter_history(
+        &self,
+        vote_pubkey: &Pubkey,
+    ) -> anyhow::Result<BTreeMap<Epoch, VoterValue>> {
+        let mut mapping = BTreeMap::new();
+        for kv in self.voter_tree.scan_prefix(bincode::serialize::<Pubkey>(
+            &vote_pubkey,
+        )?) {
             let (k, v) = kv?;
-            let k: ApyTreeKey = bincode::deserialize(&k)?;
-            let v: ApyTreeValue = bincode::deserialize(&v)?;
-            mapping.insert(k.1, (v.0, v.1));
+            let k: VoterKey = bincode::deserialize(&k)?;
+            let v: VoterValue = bincode::deserialize(&v)?;
+            mapping.insert(k.1, v);
         }
-        if mapping.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(mapping))
-        }
+        Ok(mapping)
     }
 }
