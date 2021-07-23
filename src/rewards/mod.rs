@@ -10,6 +10,7 @@ use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
+use time::OffsetDateTime;
 
 pub mod caching;
 
@@ -305,10 +306,13 @@ impl<'a> RewardsMonitor<'a> {
     }
 
     fn epoch_duration_days(&self, epoch: Epoch, epoch_info: &EpochInfo) -> anyhow::Result<f64> {
-        // TODO: Use some extrapolation magic to find out the epoch length if it's the current epoch
-        // If it's the current epoch we can't use the next epoch.
+        // If it's the current epoch then we must extrapolate
         if epoch == epoch_info.epoch {
-            return Ok(DEFAULT_EPOCH_LENGTH);
+            let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
+                - client.get_block(first_slot)?.block_time.unwrap())
+                as f64
+                / (epoch_info.slot_index) as f64;
+            return Ok(average_slot_time * epoch_info.slots_in_epoch / SECONDS_IN_DAY as f64);
         }
 
         if let Some(length) = self.cache.get_epoch_length(epoch)? {
