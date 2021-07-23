@@ -16,6 +16,7 @@ pub mod caching;
 
 const SLOT_OFFSET: u64 = 20;
 const SECONDS_IN_DAY: u64 = 86400;
+const DAYS_IN_YEAR: u64 = 365;
 const DEFAULT_EPOCH_LENGTH: f64 = 3.0;
 
 /// Maximum number of epochs to look back, INCLUSIVE of the current epoch.
@@ -418,8 +419,8 @@ fn calculate_staking_apy(
         let percent = if !seen_voters.contains(&delegation.voter_pubkey) && lamports > 0 {
             let prev_balance = post_balance - lamports;
             let epoch_rate = lamports as f64 / prev_balance as f64;
-            let apr = epoch_rate / epoch_duration * 365.0;
-            let epochs_in_year = 365.0 / epoch_duration;
+            let apr = epoch_rate / epoch_duration * (DAYS_IN_YEAR as f64);
+            let epochs_in_year = (DAYS_IN_YEAR as f64) / epoch_duration;
             let apy = f64::powf(1.0 + apr / epochs_in_year, epochs_in_year) - 1.0;
             debug!(
                 "Staking APY of {} is {:.4} (APR {:.4})",
