@@ -311,14 +311,21 @@ impl<'a> RewardsMonitor<'a> {
         Ok(voter_apys)
     }
 
+    /// Calculates the duration of the epoch in days. May or may not use a cached result if the
+    /// epoch is in the past. If the requested epoch is the current epoch, then the duration
+    /// will be extrapolated from the current average slot time.
+    /// Note that this function returns the epoch number exactly as requested. For calculating
+    /// rewards, remember that the rewards for epoch `N-1` are in epoch `N`.
     fn epoch_duration_days(&self, epoch: Epoch, epoch_info: &EpochInfo) -> anyhow::Result<f64> {
         // If it's the current epoch then we must extrapolate
         if epoch == epoch_info.epoch {
+            let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
             let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
-                - client.get_block(first_slot)?.block_time.unwrap())
+                - self.client.get_block(first_slot)?.block_time.unwrap())
                 as f64
                 / (epoch_info.slot_index) as f64;
-            return Ok(average_slot_time * epoch_info.slots_in_epoch / SECONDS_IN_DAY as f64);
+
+            return Ok(average_slot_time * epoch_info.slots_in_epoch as f64 / SECONDS_IN_DAY as f64);
         }
 
         if let Some(length) = self.cache.get_epoch_length(epoch)? {
