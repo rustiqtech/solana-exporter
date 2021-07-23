@@ -14,6 +14,8 @@ use std::u64;
 pub mod caching;
 
 const SLOT_OFFSET: u64 = 20;
+const SECONDS_IN_DAY: u64 = 86400;
+const DEFAULT_EPOCH_LENGTH: f64 = 3.0;
 
 /// Maximum number of epochs to look back, INCLUSIVE of the current epoch.
 const MAX_EPOCH_LOOKBACK: u64 = 5;
@@ -306,7 +308,7 @@ impl<'a> RewardsMonitor<'a> {
         // TODO: Use some extrapolation magic to find out the epoch length if it's the current epoch
         // If it's the current epoch we can't use the next epoch.
         if epoch == epoch_info.epoch {
-            return Ok(3.0);
+            return Ok(DEFAULT_EPOCH_LENGTH);
         }
 
         if let Some(length) = self.cache.get_epoch_length(epoch)? {
@@ -341,9 +343,9 @@ impl<'a> RewardsMonitor<'a> {
                 if let (Some(start_timestamp), Some(end_timestamp)) =
                     (start_timestamp, end_timestamp)
                 {
-                    (end_timestamp - start_timestamp) as f64 / 86_400_f64
+                    (end_timestamp - start_timestamp) as f64 / SECONDS_IN_DAY as f64
                 } else {
-                    3.0
+                    DEFAULT_EPOCH_LENGTH
                 }
             };
 

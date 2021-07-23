@@ -25,7 +25,6 @@ impl PersistentDatabase {
             .path(dir)
             .use_compression(true)
             .open()?;
-        // let database = sled::open(dir).context("could not create caching database")?;
         let metadata = Metadata::new(database.open_tree("metadata")?)
             .context("could not read metadata from database")?;
 
