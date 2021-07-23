@@ -242,7 +242,7 @@ impl<'a> RewardsMonitor<'a> {
                     if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
-                        self.epoch_duration_days(current_epoch, current_epoch_info)?,
+                        self.epoch_duration_days(current_epoch - 1, current_epoch_info)?,
                         reward.lamports as u64,
                         reward.post_balance,
                     )? {
@@ -278,7 +278,7 @@ impl<'a> RewardsMonitor<'a> {
         // TODO: Update this part according to changes to `epoch_duration_days`. A local map could
         // become redundant if the struct caches it in a field, for example.
         let epoch_durations = (current_epoch - MAX_EPOCH_LOOKBACK + 1..=current_epoch)
-            .map(|epoch| Ok((epoch, self.epoch_duration_days(epoch, current_epoch_info)?)))
+            .map(|epoch| Ok((epoch, self.epoch_duration_days(epoch - 1, current_epoch_info)?)))
             .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
         let duration_max_epoch_lookback: f64 = epoch_durations.values().sum();
 
