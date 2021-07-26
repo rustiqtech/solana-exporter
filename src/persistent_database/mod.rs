@@ -21,7 +21,10 @@ pub struct PersistentDatabase {
 impl PersistentDatabase {
     /// Creates/opens a new persistent database in the path provided.
     pub fn new(dir: &Path) -> anyhow::Result<Self> {
-        let database = sled::open(dir).context("could not create caching database")?;
+        let database = sled::Config::default()
+            .path(dir)
+            .use_compression(true)
+            .open()?;
         let metadata = Metadata::new(database.open_tree("metadata")?)
             .context("could not read metadata from database")?;
 
