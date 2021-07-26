@@ -40,7 +40,8 @@ pub struct PrometheusGauges {
     pub dc_by_stake: IntGaugeVec,
     pub leader_slots: IntCounterVec,
     pub skipped_slot_percent: GaugeVec,
-    pub staking_apy: GaugeVec,
+    pub current_staking_apy: GaugeVec,
+    pub average_staking_apy: GaugeVec,
     pub validator_rewards: IntGaugeVec,
     pub node_pubkey_balances: IntGaugeVec,
     pub node_versions: IntGaugeVec,
@@ -132,9 +133,15 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
-            staking_apy: register_gauge_vec!(
-                "solana_staking_apy",
-                "Staking APY per validator in percent",
+            current_staking_apy: register_gauge_vec!(
+                "solana_current_staking_apy",
+                "Staking validator APY based on last epoch's performance, in percent",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            average_staking_apy: register_gauge_vec!(
+                "solana_average_staking_apy",
+                "Staking validator APY averaged over a few past epochs, in percent",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
