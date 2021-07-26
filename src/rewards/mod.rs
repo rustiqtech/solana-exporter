@@ -246,7 +246,8 @@ impl<'a> RewardsMonitor<'a> {
                     if let Some(StakingApy { voter, percent }) = calculate_staking_apy(
                         &account_info,
                         &mut seen_voters,
-                        self.epoch_duration_days(current_epoch - 1, current_epoch_info)?,
+                        self.epoch_duration_days(current_epoch - 1, current_epoch_info)?
+                            .unwrap_or(DEFAULT_EPOCH_LENGTH),
                         reward.lamports as u64,
                         reward.post_balance,
                     )? {
@@ -285,7 +286,8 @@ impl<'a> RewardsMonitor<'a> {
             .map(|epoch| {
                 Ok((
                     epoch,
-                    self.epoch_duration_days(epoch - 1, current_epoch_info)?,
+                    self.epoch_duration_days(epoch - 1, current_epoch_info)?
+                        .unwrap_or(DEFAULT_EPOCH_LENGTH),
                 ))
             })
             .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
@@ -316,20 +318,29 @@ impl<'a> RewardsMonitor<'a> {
     /// will be extrapolated from the current average slot time.
     /// Note that this function returns the epoch number exactly as requested. For calculating
     /// rewards, remember that the rewards for epoch `N-1` are in epoch `N`.
-    fn epoch_duration_days(&self, epoch: Epoch, epoch_info: &EpochInfo) -> anyhow::Result<f64> {
+    /// Returns `None` if no block time is available for measurement.
+    fn epoch_duration_days(
+        &self,
+        epoch: Epoch,
+        epoch_info: &EpochInfo,
+    ) -> anyhow::Result<Option<f64>> {
         // If it's the current epoch then we must extrapolate
         if epoch == epoch_info.epoch {
             let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
-            let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
-                - self.client.get_block(first_slot)?.block_time.unwrap())
-                as f64
-                / (epoch_info.slot_index) as f64;
-
-            return Ok(average_slot_time * epoch_info.slots_in_epoch as f64 / SECONDS_IN_DAY as f64);
+            return if let Some(first_slot_time) = self.client.get_block(first_slot)?.block_time {
+                let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
+                    - first_slot_time) as f64
+                    / (epoch_info.slot_index) as f64;
+                Ok(Some(
+                    average_slot_time * epoch_info.slots_in_epoch as f64 / SECONDS_IN_DAY as f64,
+                ))
+            } else {
+                Ok(None)
+            };
         }
 
         if let Some(length) = self.cache.get_epoch_length(epoch)? {
-            Ok(length)
+            Ok(Some(length))
         } else {
             debug!("Finding epoch {}", epoch);
             let days_in_epoch = {
@@ -357,17 +368,19 @@ impl<'a> RewardsMonitor<'a> {
                     .transpose()?
                     .and_then(|x| x.block_time);
 
+                // Timestamps must exist for start and end block
                 if let (Some(start_timestamp), Some(end_timestamp)) =
                     (start_timestamp, end_timestamp)
                 {
                     (end_timestamp - start_timestamp) as f64 / SECONDS_IN_DAY as f64
                 } else {
-                    DEFAULT_EPOCH_LENGTH
+                    // Otherwise return early, do not update cache.
+                    return Ok(None);
                 }
             };
 
             self.cache.add_epoch_length(epoch, days_in_epoch)?;
-            Ok(days_in_epoch)
+            Ok(Some(days_in_epoch))
         }
     }
 
