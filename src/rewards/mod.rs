@@ -14,7 +14,7 @@ use time::OffsetDateTime;
 
 pub mod caching;
 
-const SLOT_OFFSET: u64 = 20;
+const SLOT_OFFSET: u64 = 40;
 const SECONDS_IN_DAY: u64 = 86400;
 const DAYS_IN_YEAR: u64 = 365;
 const DEFAULT_EPOCH_LENGTH: f64 = 3.0;
