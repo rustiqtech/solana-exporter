@@ -2,6 +2,7 @@ use crate::rewards::caching::RewardsCache;
 use anyhow::anyhow;
 use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
+use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_runtime::bank::RewardType;
 use solana_sdk::account::Account;
@@ -45,8 +46,8 @@ struct ValidatorReward {
     lamports: u64,
 }
 
-#[derive(Clone, Default, Debug, PartialOrd, PartialEq)]
-struct VoterApy {
+#[derive(Clone, Default, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct VoterApy {
     current_apy: f64,
     average_apy: f64,
 }
@@ -90,6 +91,10 @@ impl<'a> RewardsMonitor<'a> {
         if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
+            debug!("staking_apys has len: {}", staking_apys.len());
+            let x = staking_apys.values().filter(|x| x.current_apy != 0.0).count();
+            debug!("staking_apys has {} non-zero elements", x);
+
             for (
                 voter,
                 VoterApy {
@@ -115,6 +120,7 @@ impl<'a> RewardsMonitor<'a> {
                     .map(|c| c.set(v.lamports as i64))?;
             }
         }
+        panic!("done");
         Ok(())
     }
 
@@ -135,16 +141,31 @@ impl<'a> RewardsMonitor<'a> {
         }))
     }
 
-    /// Calculates the staking rewards over the last `MAX_EPOCH_LOOKBACK` epochs.
+    /// Calculates the staking rewards for both the current epoch and the last `MAX_EPOCH_LOOKBACK` epochs.
     fn calculate_staking_rewards(
         &self,
         current_epoch_info: &EpochInfo,
     ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
-        // Filling historical gaps
-        let (mut _rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
+        // Since during an epoch the APY cannot change, make sure that all information about an epoch
+        // is only calculated once, and then written to database to prevent inconsistent exporting.
+        if let Some(apys) = self.cache.get_epoch_voter_apy(current_epoch_info.epoch)? {
+            Ok(apys)
+        } else {
+            // Filling historical gaps
+            let (mut _rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
-        // Fill current epoch and find APY
-        self.fill_current_epoch_and_find_apy(current_epoch_info, /* &mut rewards, */ &mut apys)
+            // Fill current epoch and find APY
+            let mapping = self.fill_current_epoch_and_find_apy(
+                current_epoch_info,
+                /* &mut rewards, */ &mut apys,
+            )?;
+
+            // Write to database
+            self.cache
+                .add_epoch_voter_apy(current_epoch_info.epoch, &mapping)?;
+
+            Ok(mapping)
+        }
     }
 
     /// Fills `rewards` and `apys` with previous epochs' information, up to `MAX_EPOCH_LOOKBACK` epochs ago.

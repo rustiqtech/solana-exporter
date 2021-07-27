@@ -18,7 +18,8 @@ use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
 use crate::rewards::caching::{
-    RewardsCache, APY_TREE_NAME, EPOCH_LENGTH_NAME, EPOCH_REWARDS_TREE_NAME,
+    RewardsCache, APY_TREE_NAME, EPOCH_LENGTH_TREE_NAME, EPOCH_REWARDS_TREE_NAME,
+    EPOCH_VOTER_APY_TREE_NAME,
 };
 use crate::rewards::RewardsMonitor;
 use crate::slots::SkippedSlotsMonitor;
@@ -137,7 +138,8 @@ and then put real values there.",
     let rewards_cache = RewardsCache::new(
         persistent_database.tree(EPOCH_REWARDS_TREE_NAME)?,
         persistent_database.tree(APY_TREE_NAME)?,
-        persistent_database.tree(EPOCH_LENGTH_NAME)?,
+        persistent_database.tree(EPOCH_LENGTH_TREE_NAME)?,
+        persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
     let gauges = PrometheusGauges::new();

@@ -1,3 +1,4 @@
+use crate::rewards::VoterApy;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use solana_sdk::clock::Epoch;
@@ -9,7 +10,8 @@ pub type PubkeyVoterApyMapping = HashMap<Pubkey, (Pubkey, f64)>;
 
 pub const EPOCH_REWARDS_TREE_NAME: &str = "epoch_rewards";
 pub const APY_TREE_NAME: &str = "apy";
-pub const EPOCH_LENGTH_NAME: &str = "epoch_length";
+pub const EPOCH_LENGTH_TREE_NAME: &str = "epoch_length";
+pub const EPOCH_VOTER_APY_TREE_NAME: &str = "epoch_voter_apy";
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
 struct ApyTreeKey(Epoch, Pubkey);
@@ -22,6 +24,7 @@ pub struct RewardsCache {
     epoch_rewards_tree: sled::Tree,
     apy_tree: sled::Tree,
     epoch_length_tree: sled::Tree,
+    epoch_voter_apy_tree: sled::Tree,
 }
 
 impl RewardsCache {
@@ -30,11 +33,13 @@ impl RewardsCache {
         epoch_rewards_tree: sled::Tree,
         apy_tree: sled::Tree,
         epoch_length_tree: sled::Tree,
+        epoch_voter_apy_tree: sled::Tree,
     ) -> Self {
         Self {
             epoch_rewards_tree,
             apy_tree,
             epoch_length_tree,
+            epoch_voter_apy_tree,
         }
     }
 
@@ -102,5 +107,30 @@ impl RewardsCache {
         } else {
             Ok(Some(mapping))
         }
+    }
+
+    /// Adds an epoch's hashmap of voter APY mapping.
+    pub fn add_epoch_voter_apy(
+        &self,
+        epoch: Epoch,
+        voter_apys: &HashMap<Pubkey, VoterApy>,
+    ) -> anyhow::Result<()> {
+        self.epoch_voter_apy_tree
+            .insert(epoch.to_be_bytes(), bincode::serialize(voter_apys)?)
+            .context("could not insert voter apy into database")?;
+        Ok(())
+    }
+
+    /// Gets an epoch's hashmap of voter APY mapping.
+    pub fn get_epoch_voter_apy(
+        &self,
+        epoch: Epoch,
+    ) -> anyhow::Result<Option<HashMap<Pubkey, VoterApy>>> {
+        self.epoch_voter_apy_tree
+            .get(epoch.to_be_bytes())
+            .context("could not fetch epoch voter apy from database")?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()
+            .context("could not deserialize fetched epoch voter apy")
     }
 }
