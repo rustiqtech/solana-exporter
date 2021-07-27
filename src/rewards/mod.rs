@@ -91,10 +91,6 @@ impl<'a> RewardsMonitor<'a> {
         if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
-            debug!("staking_apys has len: {}", staking_apys.len());
-            let x = staking_apys.values().filter(|x| x.current_apy != 0.0).count();
-            debug!("staking_apys has {} non-zero elements", x);
-
             for (
                 voter,
                 VoterApy {
@@ -120,7 +116,6 @@ impl<'a> RewardsMonitor<'a> {
                     .map(|c| c.set(v.lamports as i64))?;
             }
         }
-        panic!("done");
         Ok(())
     }
 
@@ -477,7 +472,7 @@ fn calculate_staking_apy(
             seen_voters.insert(delegation.voter_pubkey);
             apy * 100.0
         } else {
-            0.0
+            return Ok(None);
         };
         Ok(Some(StakingApy {
             voter: delegation.voter_pubkey,
