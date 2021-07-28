@@ -26,6 +26,8 @@ RUN cargo build --release
 # Final base
 FROM rust:slim-buster
 COPY --from=build /solana-exporter/target/release/solana-exporter .
-RUN ./solana-exporter generate
 
-CMD ["./solana-exporter"]
+RUN mkdir /etc/solana-exporter
+ENV RUST_LOG=debug
+
+CMD ["./solana-exporter", "-c",  "/etc/solana-exporter/config.toml", "-d" , "/exporter/persistent.db"]
