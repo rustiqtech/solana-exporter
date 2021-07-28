@@ -24,7 +24,7 @@ RUN rm ./target/release/deps/solana_exporter*
 RUN cargo build --release
 
 # Final base
-FROM rust:slim-buster
+FROM debian:buster
 COPY --from=build /solana-exporter/target/release/solana-exporter .
 
 RUN mkdir /etc/solana-exporter
