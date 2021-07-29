@@ -16,7 +16,9 @@ where
     F: Fn(u64) -> anyhow::Result<Option<A>>,
 {
     // First slot in `epoch`.
-    let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
+    // let first_slot = epoch * epoch_info.slots_in_epoch;
+    let first_slot_in_epoch = epoch_info.absolute_slot - epoch_info.slot_index;
+    let first_slot = first_slot_in_epoch - ((epoch_info.epoch - epoch) * epoch_info.slots_in_epoch);
 
     // We cannot use an excessively large range if the epoch just started. There is a chance that
     // the end slot has not been reached and strange behaviour will occur.
