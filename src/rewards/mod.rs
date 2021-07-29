@@ -1,15 +1,16 @@
 use crate::rewards::caching::RewardsCache;
-use crate::rpc_extra::{with_first_block, SLOT_OFFSET};
+use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
 use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcBlockConfig;
 use solana_runtime::bank::RewardType;
 use solana_sdk::account::Account;
 use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
 use solana_stake_program::stake_state::StakeState;
-use solana_transaction_status::{Reward, Rewards};
+use solana_transaction_status::{Reward, Rewards, TransactionDetails, UiTransactionEncoding};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
 use time::OffsetDateTime;
@@ -371,29 +372,23 @@ impl<'a> RewardsMonitor<'a> {
         } else {
             debug!("Finding epoch {}", epoch);
             let days_in_epoch = {
-                let start_timestamp = self
-                    .client
-                    .get_blocks(
-                        epoch * epoch_info.slots_in_epoch,
-                        Some((epoch * epoch_info.slots_in_epoch) + SLOT_OFFSET),
-                    )?
-                    .get(0)
-                    .cloned()
-                    .map(|slot| self.client.get_block(slot))
-                    .transpose()?
-                    .and_then(|x| x.block_time);
+                let first_block_timestamp = |ep| {
+                    with_first_block(self.client, ep, epoch_info, |block| {
+                        let ui_confirmed_block = self.client.get_block_with_config(
+                            block,
+                            RpcBlockConfig {
+                                encoding: Some(UiTransactionEncoding::Base64),
+                                transaction_details: Some(TransactionDetails::None),
+                                rewards: Some(false),
+                                commitment: None,
+                            },
+                        )?;
+                        Ok(ui_confirmed_block.block_time)
+                    })
+                };
 
-                let end_timestamp = self
-                    .client
-                    .get_blocks(
-                        (epoch + 1) * epoch_info.slots_in_epoch,
-                        Some(((epoch + 1) * epoch_info.slots_in_epoch) + SLOT_OFFSET),
-                    )?
-                    .get(0)
-                    .cloned()
-                    .map(|slot| self.client.get_block(slot))
-                    .transpose()?
-                    .and_then(|x| x.block_time);
+                let start_timestamp = first_block_timestamp(epoch)?;
+                let end_timestamp = first_block_timestamp(epoch + 1)?;
 
                 // Timestamps must exist for start and end block
                 if let (Some(start_timestamp), Some(end_timestamp)) =
