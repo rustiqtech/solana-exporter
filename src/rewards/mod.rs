@@ -15,9 +15,16 @@ use time::OffsetDateTime;
 
 pub mod caching;
 
+/// Maximum number of slots to search for to find the starting block of an epoch.
 const SLOT_OFFSET: u64 = 40;
+
+/// How many seconds there are in a day
 const SECONDS_IN_DAY: u64 = 86400;
+
+/// How many days there are in a year
 const DAYS_IN_YEAR: u64 = 365;
+
+/// A default epoch length to use in case it cannot be found.
 const DEFAULT_EPOCH_LENGTH: f64 = 3.0;
 
 /// Maximum number of epochs to look back, INCLUSIVE of the current epoch.
@@ -27,12 +34,14 @@ pub(crate) type VoterEpoch = (Pubkey, Epoch);
 type VoterEpochRewardMap = HashMap<VoterEpoch, Reward>;
 type VoterEpochApyMap = HashMap<VoterEpoch, f64>;
 
+/// Staking APY of a particular voter pubkey in an epoch.
 #[derive(Clone, Default, Debug, PartialOrd, PartialEq)]
 struct StakingApy {
     voter: Pubkey,
     percent: f64,
 }
 
+/// Amount of staking rewards of a particular voter pubkey in an epoch.
 #[derive(Clone, Default, Debug, PartialOrd, PartialEq)]
 pub struct StakingReward {
     pub pubkey: Pubkey,
@@ -40,15 +49,19 @@ pub struct StakingReward {
     pub post_balance: u64, // Account balance in lamports after `lamports` was applied
 }
 
+/// Amount of rewards of a particular validator pubkey in an epoch.
 #[derive(Clone, Default, Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 struct ValidatorReward {
     voter: String,
     lamports: u64,
 }
 
+/// Set of staking APY
 #[derive(Clone, Default, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct VoterApy {
+    /// APY for the current epoch
     current_apy: f64,
+    /// APY over the last `MAX_EPOCH_LOOKBACK` epochs.
     average_apy: f64,
 }
 
@@ -63,7 +76,7 @@ pub struct RewardsMonitor<'a> {
     /// Prometheus cumulative validator rewards gauge.
     validator_rewards: &'a IntGaugeVec,
     /// Caching database for rewards
-    cache: &'a RewardsCache, // NOTE: use get_seen_epochs() for "last_rewards_epoch".
+    cache: &'a RewardsCache,
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -84,10 +97,11 @@ impl<'a> RewardsMonitor<'a> {
         }
     }
 
-    /// Exports reward metrics once an epoch.
+    /// Exports reward metrics. APY values will not be re-calculated more than once an epoch.
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
 
+        // Possible that rewards haven't shown up yet for this epoch
         if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
@@ -193,14 +207,11 @@ impl<'a> RewardsMonitor<'a> {
         Ok((rewards, apys))
     }
 
-    /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC. The cache will be updated.
-    ///
-    /// FIXME: `rewards` is currently not used. If needed, it can be moved back out of the
-    /// comment. Otherwise we should remove it.
+    /// Fills `rewards` and `accounts` with the current epoch's information, either from the cache or RPC.
+    /// The cache will be updated.
     fn fill_current_epoch_and_find_apy(
         &self,
         current_epoch_info: &EpochInfo,
-        // rewards: &mut PkEpochRewardMap,
         apys: &mut VoterEpochApyMap,
     ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
         let current_epoch = current_epoch_info.epoch;
@@ -246,10 +257,11 @@ impl<'a> RewardsMonitor<'a> {
             // Seen voters are added here so that an APY calculation occurs is done only once
             // for a given voter.
             let mut seen_voters = BTreeSet::new();
+
             // Chunk into 100
             for chunk in to_query.chunks(100) {
                 let pubkeys: Vec<_> = chunk.iter().map(|r| r.pubkey).collect();
-                debug!("Getting multiple accounts");
+                debug!("Getting {} accounts", chunk.len());
                 let account_infos = self.client.get_multiple_accounts(pubkeys.as_slice())?;
 
                 // For each response in chunk
@@ -296,8 +308,7 @@ impl<'a> RewardsMonitor<'a> {
                 .or_insert_with(|| std::iter::once((*epoch, *apy)).collect());
         }
 
-        // TODO: Update this part according to changes to `epoch_duration_days`. A local map could
-        // become redundant if the struct caches it in a field, for example.
+        // Epoch durations up to lookback
         let epoch_durations = (current_epoch - MAX_EPOCH_LOOKBACK + 1..=current_epoch)
             .map(|epoch| {
                 Ok((
@@ -310,6 +321,8 @@ impl<'a> RewardsMonitor<'a> {
         let duration_max_epoch_lookback: f64 = epoch_durations.values().sum();
 
         let mut voter_apys = HashMap::new();
+
+        // Calculate the current and average APY
         for (voter, epoch_apys) in voter_epoch_apys {
             let mut total_apy = 0.0;
             for (epoch, duration) in &epoch_durations {
