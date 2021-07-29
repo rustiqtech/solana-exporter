@@ -16,7 +16,7 @@ where
     F: Fn(u64) -> anyhow::Result<Option<A>>,
 {
     // First slot in `epoch`.
-    let first_slot = epoch * epoch_info.slots_in_epoch;
+    let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
 
     // We cannot use an excessively large range if the epoch just started. There is a chance that
     // the end slot has not been reached and strange behaviour will occur.
@@ -28,9 +28,8 @@ where
         Some(first_slot + SLOT_OFFSET)
     };
 
-    let blocks = client.get_blocks(first_slot, Some(first_slot + SLOT_OFFSET))?;
     // First block in `epoch`.
-    let first_block = blocks.get(0).cloned();
+    let first_block = client.get_blocks(first_slot, end_slot)?.get(0).cloned();
 
     if let Some(block) = first_block {
         f(block)
@@ -38,7 +37,6 @@ where
         // Possibly not yet computed the first block.
         Ok(None)
     } else {
-        println!("first_slot {}, blocks {:?}", first_slot, blocks);
         Err(anyhow!("no blocks found"))
     }
 }
