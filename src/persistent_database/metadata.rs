@@ -1,6 +1,8 @@
 use crate::SOLANA_EXPORTER_VERSION;
 use anyhow::{anyhow, Context};
 use semver::Version;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::str::FromStr;
 
 const CREATED_VERSION: &str = "created_version";
@@ -34,5 +36,34 @@ impl Metadata {
             .transpose()
             .context("created_version from database is not valid semver")?
             .ok_or_else(|| anyhow!("no created_version in metadata"))
+    }
+
+    /// Returns the metadata struct for a particular tree.
+    pub fn get_metadata<T>(&self, tree_name: &str) -> anyhow::Result<Option<T>>
+    where
+        T: DeserializeOwned,
+    {
+        self.tree
+            .get(tree_name)
+            .context("could not get metadata")?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()
+            .context("could not deserialize fetched metadata")
+    }
+
+    /// Sets the metadata struct for a particular tree. Returns the previously inserted value.
+    pub fn set_metadata<T>(&self, tree_name: &str, value: &T) -> anyhow::Result<Option<T>>
+    where
+        T: Serialize + DeserializeOwned,
+    {
+        self.tree
+            .insert(
+                tree_name,
+                bincode::serialize(value).context("could not serialize metadata")?,
+            )
+            .context("could not insert metadata into database")?
+            .map(|x| bincode::deserialize(&x))
+            .transpose()
+            .context("could not deserialize the previously inserted metadata value")
     }
 }

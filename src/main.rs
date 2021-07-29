@@ -17,6 +17,11 @@ use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
+use crate::rewards::caching::{
+    RewardsCache, APY_TREE_NAME, EPOCH_LENGTH_TREE_NAME, EPOCH_REWARDS_TREE_NAME,
+    EPOCH_VOTER_APY_TREE_NAME,
+};
+use crate::rewards::RewardsMonitor;
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
 use clap::{load_yaml, App};
@@ -30,10 +35,10 @@ use std::path::Path;
 use std::{fs, time::Duration};
 
 pub mod config;
-pub mod epoch_credits;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
+pub mod rewards;
 pub mod slots;
 
 /// Name of directory where solana-exporter will store information
@@ -127,11 +132,26 @@ and then put real values there.",
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc.clone());
+
     let geolocation_cache =
         GeolocationCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
+    let rewards_cache = RewardsCache::new(
+        persistent_database.tree(EPOCH_REWARDS_TREE_NAME)?,
+        persistent_database.tree(APY_TREE_NAME)?,
+        persistent_database.tree(EPOCH_LENGTH_TREE_NAME)?,
+        persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
+    );
+
     let gauges = PrometheusGauges::new();
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
+    let mut rewards_monitor = RewardsMonitor::new(
+        &client,
+        &gauges.current_staking_apy,
+        &gauges.average_staking_apy,
+        &gauges.validator_rewards,
+        &rewards_cache,
+    );
 
     loop {
         let _guard = exporter.wait_duration(duration);
@@ -165,5 +185,8 @@ and then put real values there.",
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info)
             .context("Failed to export skipped slots")?;
+        rewards_monitor
+            .export_rewards(&epoch_info)
+            .context("Failed to export rewards")?;
     }
 }
