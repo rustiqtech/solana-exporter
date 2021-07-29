@@ -39,11 +39,11 @@ pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
 pub mod rewards;
+pub mod rpc_extra;
 pub mod slots;
 
 /// Name of directory where solana-exporter will store information
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
-
 /// Current version of `solana-exporter`
 pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 

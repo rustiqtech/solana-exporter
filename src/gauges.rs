@@ -4,8 +4,8 @@ use crate::geolocation::api::MAXMIND_CITY_URI;
 use crate::geolocation::caching::GeolocationCache;
 use crate::geolocation::get_rpc_contact_ip;
 use crate::geolocation::identifier::DatacenterIdentifier;
-use anyhow::anyhow;
-use anyhow::Context;
+use crate::rpc_extra::with_first_block;
+use anyhow::{anyhow, Context};
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
 use log::{debug, error};
@@ -14,8 +14,10 @@ use prometheus_exporter::prometheus::{
     register_int_gauge_vec, Gauge, GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
 };
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcBlockConfig;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
+use solana_transaction_status::{TransactionDetails, UiTransactionEncoding};
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
 
@@ -225,11 +227,24 @@ impl PrometheusGauges {
         self.current_epoch_first_slot.set(first_slot as i64);
         self.current_epoch_last_slot.set(last_slot as i64);
 
-        let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
-            - client.get_block(first_slot)?.block_time.unwrap())
-            as f64
-            / (epoch_info.slot_index) as f64;
-        self.average_slot_time.set(average_slot_time);
+        with_first_block(client, epoch_info.epoch, epoch_info, |block| {
+            let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
+                - client
+                    .get_block_with_config(
+                        block,
+                        RpcBlockConfig {
+                            encoding: Some(UiTransactionEncoding::Base64),
+                            transaction_details: Some(TransactionDetails::None),
+                            rewards: Some(false),
+                            commitment: None,
+                        },
+                    )?
+                    .block_time
+                    .unwrap()) as f64
+                / (epoch_info.slot_index) as f64;
+            self.average_slot_time.set(average_slot_time);
+            Ok(Some(()))
+        })?;
 
         Ok(())
     }
