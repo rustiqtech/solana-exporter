@@ -101,7 +101,7 @@ impl<'a> RewardsMonitor<'a> {
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch
-        if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
+        if self.get_rewards_for_epoch(epoch)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
             for (
@@ -189,7 +189,7 @@ impl<'a> RewardsMonitor<'a> {
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
             // Historical rewards
             let historical_rewards = self
-                .get_rewards_for_epoch(epoch, current_epoch_info)?
+                .get_rewards_for_epoch(epoch)?
                 .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
             for reward in historical_rewards {
                 rewards.insert((reward.pubkey.parse()?, epoch), reward);
@@ -216,7 +216,7 @@ impl<'a> RewardsMonitor<'a> {
         let current_epoch = current_epoch_info.epoch;
 
         let current_rewards = self
-            .get_rewards_for_epoch(current_epoch, current_epoch_info)?
+            .get_rewards_for_epoch(current_epoch)?
             .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
 
         // Extract into staking rewards and validator rewards.
@@ -373,7 +373,7 @@ impl<'a> RewardsMonitor<'a> {
             debug!("Finding epoch {}", epoch);
             let days_in_epoch = {
                 let first_block_timestamp = |ep| {
-                    with_first_block(self.client, ep, epoch_info, |block| {
+                    with_first_block(self.client, ep, |block| {
                         let ui_confirmed_block = self.client.get_block_with_config(
                             block,
                             RpcBlockConfig {
@@ -406,18 +406,14 @@ impl<'a> RewardsMonitor<'a> {
         }
     }
 
-    /// Gets the rewards for `epoch` given the current `epoch_info`, either from RPC or cache. The cache will be updated.
+    /// Gets the rewards for `epoch`, either from RPC or cache. The cache will be updated.
     /// Returns `Ok(None)` if there haven't been any rewards in the given epoch yet, `Ok(Some(rewards))` if there have, and
     /// otherwise returns an error.
-    fn get_rewards_for_epoch(
-        &self,
-        epoch: Epoch,
-        epoch_info: &EpochInfo,
-    ) -> anyhow::Result<Option<Rewards>> {
+    fn get_rewards_for_epoch(&self, epoch: Epoch) -> anyhow::Result<Option<Rewards>> {
         if let Some(rewards) = self.cache.get_epoch_rewards(epoch)? {
             Ok(Some(rewards))
         } else {
-            with_first_block(self.client, epoch, epoch_info, |block| {
+            with_first_block(self.client, epoch, |block| {
                 let rewards = self.client.get_block(block)?.rewards;
                 self.cache.add_epoch_rewards(epoch, &rewards)?;
                 Ok(Some(rewards))

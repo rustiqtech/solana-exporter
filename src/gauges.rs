@@ -227,7 +227,7 @@ impl PrometheusGauges {
         self.current_epoch_first_slot.set(first_slot as i64);
         self.current_epoch_last_slot.set(last_slot as i64);
 
-        with_first_block(client, epoch_info.epoch, epoch_info, |block| {
+        with_first_block(client, epoch_info.epoch, |block| {
             let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
                 - client
                     .get_block_with_config(

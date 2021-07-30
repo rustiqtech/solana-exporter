@@ -1,17 +1,8 @@
-use anyhow::anyhow;
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{clock::Epoch, epoch_info::EpochInfo};
-
-/// The number of slots at the beginning of an epoch to keep looking for the first block.
-const SLOT_OFFSET: u64 = 100;
+use solana_sdk::clock::Epoch;
 
 /// Applies `f` to the first block in `epoch`.
-pub fn with_first_block<F, A>(
-    client: &RpcClient,
-    epoch: Epoch,
-    epoch_info: &EpochInfo,
-    f: F,
-) -> anyhow::Result<Option<A>>
+pub fn with_first_block<F, A>(client: &RpcClient, epoch: Epoch, f: F) -> anyhow::Result<Option<A>>
 where
     F: Fn(u64) -> anyhow::Result<Option<A>>,
 {
@@ -23,10 +14,7 @@ where
 
     if let Some(block) = first_block {
         f(block)
-    } else if epoch_info.slot_index < SLOT_OFFSET {
-        // Possibly not yet computed the first block.
-        Ok(None)
     } else {
-        Err(anyhow!("no blocks found"))
+        Ok(None)
     }
 }
