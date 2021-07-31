@@ -1,22 +1,21 @@
 use crate::rewards::caching::RewardsCache;
+use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
 use log::debug;
 use prometheus_exporter::prometheus::{GaugeVec, IntGaugeVec};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcBlockConfig;
 use solana_runtime::bank::RewardType;
 use solana_sdk::account::Account;
 use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
 use solana_stake_program::stake_state::StakeState;
-use solana_transaction_status::{Reward, Rewards};
+use solana_transaction_status::{Reward, Rewards, TransactionDetails, UiTransactionEncoding};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::u64;
 use time::OffsetDateTime;
 
 pub mod caching;
-
-/// Maximum number of slots to search for to find the starting block of an epoch.
-const SLOT_OFFSET: u64 = 40;
 
 /// How many seconds there are in a day
 const SECONDS_IN_DAY: u64 = 86400;
@@ -102,7 +101,7 @@ impl<'a> RewardsMonitor<'a> {
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch
-        if self.get_rewards_for_epoch(epoch, epoch_info)?.is_some() {
+        if self.get_rewards_for_epoch(epoch)?.is_some() {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
             for (
@@ -190,7 +189,7 @@ impl<'a> RewardsMonitor<'a> {
         for epoch in (current_epoch - MAX_EPOCH_LOOKBACK)..current_epoch {
             // Historical rewards
             let historical_rewards = self
-                .get_rewards_for_epoch(epoch, current_epoch_info)?
+                .get_rewards_for_epoch(epoch)?
                 .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
             for reward in historical_rewards {
                 rewards.insert((reward.pubkey.parse()?, epoch), reward);
@@ -217,7 +216,7 @@ impl<'a> RewardsMonitor<'a> {
         let current_epoch = current_epoch_info.epoch;
 
         let current_rewards = self
-            .get_rewards_for_epoch(current_epoch, current_epoch_info)?
+            .get_rewards_for_epoch(current_epoch)?
             .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
 
         // Extract into staking rewards and validator rewards.
@@ -373,29 +372,23 @@ impl<'a> RewardsMonitor<'a> {
         } else {
             debug!("Finding epoch {}", epoch);
             let days_in_epoch = {
-                let start_timestamp = self
-                    .client
-                    .get_blocks(
-                        epoch * epoch_info.slots_in_epoch,
-                        Some((epoch * epoch_info.slots_in_epoch) + SLOT_OFFSET),
-                    )?
-                    .get(0)
-                    .cloned()
-                    .map(|slot| self.client.get_block(slot))
-                    .transpose()?
-                    .and_then(|x| x.block_time);
+                let first_block_timestamp = |ep| {
+                    with_first_block(self.client, ep, |block| {
+                        let ui_confirmed_block = self.client.get_block_with_config(
+                            block,
+                            RpcBlockConfig {
+                                encoding: Some(UiTransactionEncoding::Base64),
+                                transaction_details: Some(TransactionDetails::None),
+                                rewards: Some(false),
+                                commitment: None,
+                            },
+                        )?;
+                        Ok(ui_confirmed_block.block_time)
+                    })
+                };
 
-                let end_timestamp = self
-                    .client
-                    .get_blocks(
-                        (epoch + 1) * epoch_info.slots_in_epoch,
-                        Some(((epoch + 1) * epoch_info.slots_in_epoch) + SLOT_OFFSET),
-                    )?
-                    .get(0)
-                    .cloned()
-                    .map(|slot| self.client.get_block(slot))
-                    .transpose()?
-                    .and_then(|x| x.block_time);
+                let start_timestamp = first_block_timestamp(epoch)?;
+                let end_timestamp = first_block_timestamp(epoch + 1)?;
 
                 // Timestamps must exist for start and end block
                 if let (Some(start_timestamp), Some(end_timestamp)) =
@@ -413,47 +406,18 @@ impl<'a> RewardsMonitor<'a> {
         }
     }
 
-    /// Gets the rewards for `epoch` given the current `epoch_info`, either from RPC or cache. The cache will be updated.
+    /// Gets the rewards for `epoch`, either from RPC or cache. The cache will be updated.
     /// Returns `Ok(None)` if there haven't been any rewards in the given epoch yet, `Ok(Some(rewards))` if there have, and
     /// otherwise returns an error.
-    fn get_rewards_for_epoch(
-        &self,
-        epoch: Epoch,
-        epoch_info: &EpochInfo,
-    ) -> anyhow::Result<Option<Rewards>> {
+    fn get_rewards_for_epoch(&self, epoch: Epoch) -> anyhow::Result<Option<Rewards>> {
         if let Some(rewards) = self.cache.get_epoch_rewards(epoch)? {
             Ok(Some(rewards))
         } else {
-            // Convert epoch number to slot
-            let start_slot = epoch * epoch_info.slots_in_epoch;
-
-            // We cannot use an excessively large range if the epoch just started. There is a chance that
-            // the end slot has not been reached and strange behaviour will occur.
-            // If this is the current epoch and less than `SLOT_OFFSET` slots have elapsed, then do not define an
-            // end_slot for use in the RPC call.
-            let end_slot = if epoch_info.epoch == epoch && epoch_info.slot_index < SLOT_OFFSET {
-                None
-            } else {
-                Some(start_slot + SLOT_OFFSET)
-            };
-
-            // First block only
-            let block = self
-                .client
-                .get_blocks(start_slot, end_slot)?
-                .get(0)
-                .cloned();
-
-            if let Some(block) = block {
+            with_first_block(self.client, epoch, |block| {
                 let rewards = self.client.get_block(block)?.rewards;
                 self.cache.add_epoch_rewards(epoch, &rewards)?;
                 Ok(Some(rewards))
-            } else if end_slot.is_none() {
-                // Possibly not yet computed the first block.
-                Ok(None)
-            } else {
-                Err(anyhow!("no blocks found"))
-            }
+            })
         }
     }
 }
