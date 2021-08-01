@@ -1092,7 +1092,9 @@ dependencies = [
 
 [[package]]
 name = "geoip2-city"
-version = "0.1.1"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d682d11edaf396c51b8f7861459c03a1bec59c2c38388008923db0ffb0716e4"
 dependencies = [
  "serde",
 ]

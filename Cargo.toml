@@ -25,7 +25,7 @@ bincode = "^1.3.3"
 serde = { version = "^1.0.126", features = ["derive"] }
 reqwest = "^0.11.3"
 time = { version = "^0.2.26", features = ["serde"] }
-geoip2-city = { path = "geoip2-city", version = "^0.1.0", features = ["serde_support"] }
+geoip2-city = { version = "^0.1.0", features = ["serde_support"] }
 anyhow = "^1.0.40"
 tokio = "^1.6.0"
 futures = "^0.3.15"
