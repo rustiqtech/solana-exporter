@@ -24,7 +24,7 @@ RUN rm ./target/release/deps/solana_exporter*
 RUN cargo build --release
 
 # Final base
-FROM debian:buster
+FROM debian:buster-slim
 
 RUN USER=root apt-get update && apt-get install -y
 RUN USER=root apt-get install -y libssl1.1
