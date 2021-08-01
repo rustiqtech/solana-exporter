@@ -1,7 +1,7 @@
 FROM rust:buster as build
 
 # Dependencies
-RUN USER=root apt-get update && apt-get install -y
+RUN USER=root apt-get update && apt-get full-upgrade -y
 RUN USER=root apt-get install -y libudev-dev
 
 # Create a new empty shell project
@@ -26,7 +26,7 @@ RUN cargo build --release
 # Final base
 FROM debian:buster-slim
 
-RUN USER=root apt-get update && apt-get install -y
+RUN USER=root apt-get update && apt-get full-upgrade -y
 RUN USER=root apt-get install -y libssl1.1
 
 COPY --from=build /solana-exporter/target/release/solana-exporter .
