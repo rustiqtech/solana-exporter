@@ -25,6 +25,10 @@ RUN cargo build --release
 
 # Final base
 FROM debian:buster
+
+RUN USER=root apt-get update && apt-get install -y
+RUN USER=root apt-get install -y libssl-dev libudev-dev
+
 COPY --from=build /solana-exporter/target/release/solana-exporter .
 
 RUN mkdir /etc/solana-exporter
