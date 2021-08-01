@@ -27,7 +27,7 @@ RUN cargo build --release
 FROM debian:buster
 
 RUN USER=root apt-get update && apt-get install -y
-RUN USER=root apt-get install -y libssl-dev libudev-dev
+RUN USER=root apt-get install -y libssl1.1
 
 COPY --from=build /solana-exporter/target/release/solana-exporter .
 
