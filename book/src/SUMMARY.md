@@ -2,7 +2,7 @@
 
 [Introduction](introduction.md)
 - [Basics](basics/basics.md)
-  - [Installation]()
+  - [Installation](basics/installation.md)
   - [Configuration]()
   - [Deploying with Docker]()
   - [Integration with Grafana]()
