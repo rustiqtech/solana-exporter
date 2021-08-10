@@ -4,7 +4,7 @@
 - [Basics](basics/basics.md)
   - [Installation](basics/installation.md)
   - [Configuration](basics/configuration.md)
-  - [Deploying with Docker]()
+  - [Deploying with Docker](basics/docker.md)
   - [Integration with Grafana]()
 - [Exported Feeds](exported_feeds/exported_feeds.md)
 - [Examples](examples/examples.md)
