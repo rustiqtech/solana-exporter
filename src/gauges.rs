@@ -18,7 +18,7 @@ use solana_client::rpc_config::RpcBlockConfig;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use solana_transaction_status::{TransactionDetails, UiTransactionEncoding};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use time::{Duration, OffsetDateTime};
 
 /// Label used for the status value
@@ -51,11 +51,12 @@ pub struct PrometheusGauges {
     pub average_slot_time: Gauge,
     // Connection pool for querying
     client: reqwest::Client,
+    whitelist: Option<Whitelist>,
 }
 
 impl PrometheusGauges {
     /// Makes new set of gauges.
-    pub fn new() -> Self {
+    pub fn new(whitelist: Whitelist) -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
                 "solana_active_validators",
@@ -169,6 +170,19 @@ impl PrometheusGauges {
             average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time")
                 .unwrap(),
             client: reqwest::Client::new(),
+            whitelist: if whitelist.is_empty() {
+                None
+            } else {
+                Some(whitelist)
+            },
+        }
+    }
+
+    fn whitelist_contains(&self, value: &str) -> bool {
+        if let Some(whitelist) = &self.whitelist {
+            whitelist.contains(value)
+        } else {
+            true
         }
     }
 
@@ -176,26 +190,53 @@ impl PrometheusGauges {
     pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
-            .map(|m| m.set(vote_accounts.current.len() as i64))?;
+            .map(|m| {
+                m.set(
+                    vote_accounts
+                        .current
+                        .iter()
+                        .filter(|rpc| self.whitelist_contains(&rpc.node_pubkey))
+                        .count() as i64,
+                )
+            })?;
 
         self.active_validators
             .get_metric_with_label_values(&["delinquent"])
-            .map(|m| m.set(vote_accounts.delinquent.len() as i64))?;
+            .map(|m| {
+                m.set(
+                    vote_accounts
+                        .delinquent
+                        .iter()
+                        .filter(|rpc| self.whitelist_contains(&rpc.node_pubkey))
+                        .count() as i64,
+                )
+            })?;
 
-        for v in &vote_accounts.current {
+        for v in vote_accounts
+            .current
+            .iter()
+            .filter(|rpc| self.whitelist_contains(&rpc.node_pubkey))
+        {
             self.is_delinquent
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
                 .map(|m| m.set(0.))?;
         }
-        for v in &vote_accounts.delinquent {
+
+        for v in vote_accounts
+            .delinquent
+            .iter()
+            .filter(|rpc| self.whitelist_contains(&rpc.node_pubkey))
+        {
             self.is_delinquent
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
                 .map(|m| m.set(1.))?;
         }
+
         for v in vote_accounts
             .current
             .iter()
             .chain(vote_accounts.delinquent.iter())
+            .filter(|rpc| self.whitelist_contains(&rpc.node_pubkey))
         {
             self.activated_stake
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
@@ -254,13 +295,12 @@ impl PrometheusGauges {
         &self,
         nodes: &[RpcContactInfo],
         client: &RpcClient,
-        whitelist: &Whitelist,
     ) -> anyhow::Result<()> {
         // Balance of node pubkeys. Only exported if a whitelist is set!
-        if !whitelist.is_empty() {
+        if self.whitelist.is_some() {
             let balances = nodes
                 .iter()
-                .filter(|rpc| whitelist.is_empty() || whitelist.contains(&rpc.pubkey))
+                .filter(|rpc| self.whitelist_contains(&rpc.pubkey))
                 .map(|rpc| {
                     Ok((
                         rpc.pubkey.clone(),
@@ -275,6 +315,11 @@ impl PrometheusGauges {
                     .map(|c| c.set(balance as i64))?;
             }
         }
+
+        let nodes = nodes
+            .iter()
+            .filter(|rpc| self.whitelist_contains(&rpc.pubkey))
+            .collect::<Vec<_>>();
 
         // Export number of nodes
         self.nodes.set(nodes.len() as i64);
@@ -301,7 +346,6 @@ impl PrometheusGauges {
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
         cache: &GeolocationCache,
-        whitelist: &Whitelist,
         maxmind: &MaxMindAPIKey,
     ) -> anyhow::Result<()> {
         // Define all types here
@@ -332,14 +376,10 @@ impl PrometheusGauges {
         };
 
         // If whitelist exists, remove all non-listed pubkeys
-        let validator_nodes = if !whitelist.is_empty() {
-            validator_nodes
-                .into_iter()
-                .filter(|(contact, _)| whitelist.contains(&contact.pubkey))
-                .collect()
-        } else {
-            validator_nodes
-        };
+        let validator_nodes = validator_nodes
+            .into_iter()
+            .filter(|(contact, _)| self.whitelist_contains(&contact.pubkey))
+            .collect::<Vec<_>>();
 
         // Separate cached data from uncached data
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
@@ -465,6 +505,6 @@ impl PrometheusGauges {
 
 impl Default for PrometheusGauges {
     fn default() -> Self {
-        Self::new()
+        Self::new(HashSet::default())
     }
 }

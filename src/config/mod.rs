@@ -18,14 +18,3 @@ pub struct ExporterConfig {
     /// Maxmind API
     pub maxmind: Option<MaxMindAPIKey>,
 }
-
-impl ExporterConfig {
-    pub fn whitelist_contains(&self, value: &str) -> bool {
-        if self.pubkey_whitelist.is_empty() {
-            true
-        }
-        else {
-            self.pubkey_whitelist.contains(value)
-        }
-    }
-}

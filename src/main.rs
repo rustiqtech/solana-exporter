@@ -142,7 +142,7 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let gauges = PrometheusGauges::new();
+    let gauges = PrometheusGauges::new(config.pubkey_whitelist);
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
     let mut rewards_monitor = RewardsMonitor::new(
@@ -168,17 +168,11 @@ and then put real values there.",
         gauges
             .export_epoch_info(&epoch_info, &client)
             .context("Failed to export epoch info metrics")?;
-        gauges.export_nodes_info(&nodes, &client, &config.pubkey_whitelist)?;
+        gauges.export_nodes_info(&nodes, &client)?;
         if let Some(maxmind) = config.maxmind.clone() {
             // If the MaxMind API is configured, submit queries for any uncached IPs.
             gauges
-                .export_ip_addresses(
-                    &nodes,
-                    &vote_accounts,
-                    &geolocation_cache,
-                    &config.pubkey_whitelist,
-                    &maxmind,
-                )
+                .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &maxmind)
                 .await
                 .context("Failed to export IP address info metrics")?;
         }
