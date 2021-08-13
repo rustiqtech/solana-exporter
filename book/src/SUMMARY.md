@@ -30,4 +30,4 @@
   - [solana_nodes]()
   - [solana_average_slot_time]()
 - [Examples](examples/examples.md)
-  - [Monitoring a stake pool]()
+  - [Monitoring a stake pool](examples/monitoring_stakepool.md)
