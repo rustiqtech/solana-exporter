@@ -24,3 +24,15 @@ password = 'password'
   your account with credits.
     - `username` - the username of the API key.
     - `password` - the password of the API key.
+  
+## Important note on `pubkey_whitelist`
+As explained above, a non-empty `pubkey_whitelist` array instructs the exporter to only export information about the
+specified pubkeys. However, care should be taken if you modify the whitelist and then reload `solana-exporter`.
+In particular, for the following gauges:
+- `solana_current_staking_apy`
+- `solana_average_staking_apy`
+
+if any newly-appearing (e.g., formerly excluded) pubkeys were not fetched for a particular epoch, then `solana-exporter`
+will not attempt to "back-fill" data for either the current or past epochs. Therefore, those pubkeys will be **missing**
+from the gauges until the next epoch begins. This is due to the fact that the exporter only scrapes the ledger for
+rewards data once at the beginning of every epoch.

@@ -12,6 +12,20 @@ To use the provided dashboard, first
 [add the Prometheus data source](https://grafana.com/docs/grafana/latest/datasources/add-a-data-source/). Then,
 [import the dashboard](https://grafana.com/docs/grafana/latest/dashboards/export-import/).
 
-![Grafana Dashboard](grafana_dashboard.png)
+![Grafana Dashboard](../images/grafana_dashboard.png)
 
 For an in-depth explanation of each exported gauge, see then next chapter.
+
+## Sample screenshots
+
+![Pie chart of activated stake by datacenter](../images/grafana_activated_stake_by_dc.png)
+*Pie chart of activated stake by datacenter*
+(Gauge used: [`solana_active_validators_dc_stake`](../exported_feeds/solana_active_validators_dc_stake.md))
+
+![Heatmap of average skipped slot of validators](../images/grafana_skipped_slot.png)
+*Heatmap of average skipped slot of validators*
+(Gauge used: [`solana_skipped_slot_percent`]())
+
+![Heatmap of average staking APY over 5 epochs](../images/grafana_average_staking_apy.png)
+*Heatmap of average staking APY over 5 epochs*
+(Gauge used: [`solana_average_staking_apy`]())

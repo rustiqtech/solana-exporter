@@ -4,10 +4,12 @@
 [Prometheus](https://prometheus.io/)' documentation on how to get it running on your machine.
 
 If querying a public RPC port, `solana-exporter` can be run from anywhere, not necessarily from the
-validator machine. If querying a private RPC port, install Prometheus on the validator machine. Add
+validator machine.
+
+If querying a private RPC port, install Prometheus on the validator machine. Add
 the following snippet to the `scrape_configs` section of the `prometheus.yml` config file:
 
-```
+```yaml
   - job_name: solana
     static_configs:
       - targets: ['localhost:9179']
