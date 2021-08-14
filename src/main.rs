@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::config::{ExporterConfig, CONFIG_FILE_NAME, Whitelist};
+use crate::config::{ExporterConfig, Whitelist, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
@@ -141,7 +141,7 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let gauges = PrometheusGauges::new(config.pubkey_whitelist);
+    let gauges = PrometheusGauges::new(config.pubkey_whitelist.clone());
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
     let mut rewards_monitor = RewardsMonitor::new(
@@ -150,6 +150,7 @@ and then put real values there.",
         &gauges.average_staking_apy,
         &gauges.validator_rewards,
         &rewards_cache,
+        config.pubkey_whitelist,
     );
 
     loop {

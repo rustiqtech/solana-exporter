@@ -1,3 +1,4 @@
+use crate::config::Whitelist;
 use crate::rewards::caching::RewardsCache;
 use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
@@ -76,6 +77,8 @@ pub struct RewardsMonitor<'a> {
     validator_rewards: &'a IntGaugeVec,
     /// Caching database for rewards
     cache: &'a RewardsCache,
+    /// Pubkeys whitelist
+    whitelist: Whitelist,
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -86,6 +89,7 @@ impl<'a> RewardsMonitor<'a> {
         average_staking_apy: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
         rewards_cache: &'a RewardsCache,
+        whitelist: Whitelist,
     ) -> Self {
         Self {
             client,
@@ -93,6 +97,7 @@ impl<'a> RewardsMonitor<'a> {
             average_staking_apy,
             validator_rewards,
             cache: rewards_cache,
+            whitelist,
         }
     }
 
@@ -160,13 +165,10 @@ impl<'a> RewardsMonitor<'a> {
             Ok(apys)
         } else {
             // Filling historical gaps
-            let (mut _rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
+            let (_, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
             // Fill current epoch and find APY
-            let mapping = self.fill_current_epoch_and_find_apy(
-                current_epoch_info,
-                /* &mut rewards, */ &mut apys,
-            )?;
+            let mapping = self.fill_current_epoch_and_find_apy(current_epoch_info, &mut apys)?;
 
             // Write to database
             self.cache
@@ -190,12 +192,21 @@ impl<'a> RewardsMonitor<'a> {
             // Historical rewards
             let historical_rewards = self
                 .get_rewards_for_epoch(epoch)?
-                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
+                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?
+                .into_iter()
+                .filter(|reward| self.whitelist.contains(&reward.pubkey))
+                .collect::<Vec<_>>();
             for reward in historical_rewards {
                 rewards.insert((reward.pubkey.parse()?, epoch), reward);
             }
 
-            let historical_apys = self.cache.get_epoch_apy(epoch)?.unwrap_or_default();
+            let historical_apys = self
+                .cache
+                .get_epoch_apy(epoch)?
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(pk, _)| self.whitelist.contains(&pk.to_string()));
+
             apys.extend(
                 historical_apys
                     .into_iter()
@@ -217,7 +228,9 @@ impl<'a> RewardsMonitor<'a> {
 
         let current_rewards = self
             .get_rewards_for_epoch(current_epoch)?
-            .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
+            .ok_or_else(|| anyhow!("current epoch has no rewards"))?
+            .into_iter()
+            .filter(|reward| self.whitelist.contains(&reward.pubkey));
 
         // Extract into staking rewards and validator rewards.
         let staking_rewards = current_rewards.into_iter().filter_map(|r| {

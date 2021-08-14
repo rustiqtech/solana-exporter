@@ -10,8 +10,7 @@ impl Whitelist {
     pub fn contains(&self, value: &str) -> bool {
         if self.0.is_empty() {
             true
-        }
-        else {
+        } else {
             self.0.contains(value)
         }
     }

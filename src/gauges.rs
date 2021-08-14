@@ -18,7 +18,7 @@ use solana_client::rpc_config::RpcBlockConfig;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
 use solana_transaction_status::{TransactionDetails, UiTransactionEncoding};
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
 
 /// Label used for the status value
