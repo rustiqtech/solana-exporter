@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
+use crate::config::{ExporterConfig, CONFIG_FILE_NAME, Whitelist};
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
@@ -27,7 +27,6 @@ use anyhow::Context;
 use clap::{load_yaml, App};
 use log::{debug, warn};
 use solana_client::rpc_client::RpcClient;
-use std::collections::HashSet;
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::net::SocketAddr;
@@ -61,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: Some(MaxMindAPIKey::new("username", "password")),
-                pubkey_whitelist: HashSet::default(),
+                pubkey_whitelist: Whitelist::default(),
             };
 
             let location = sc
