@@ -1,6 +1,6 @@
 # Introduction
 
-`solana-exporter` is an advanced, modular monitoring solution for
+`solana-exporter` (Solana Rust Exporter) is an advanced, modular monitoring solution for
 [Solana](https://github.com/solana-labs/solana) validator nodes. The executable part is implemented
 in Rust and was initially based on the [Golang
 original](https://github.com/certusone/solana_exporter) by CertusOne but now provides additional
