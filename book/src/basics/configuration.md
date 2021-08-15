@@ -40,3 +40,17 @@ if any newly-appearing (e.g., formerly excluded) pubkeys were not fetched for a 
 will not attempt to "back-fill" data for either the current or past epochs. Therefore, those pubkeys will be **missing**
 from the gauges until the next epoch begins. This is due to the fact that the exporter only scrapes the ledger for
 rewards data once at the beginning of every epoch.
+
+## Overriding the config file location
+
+- Standalone program: The default location is `~/.solana-exporter/config.toml`. Override this with the `-c` flag.
+- Docker container: Change the bind-mount location.
+
+
+## Overriding the database location
+
+To speed up processing and reduce unnecessary network traffic, `solana-exporter` uses a persistent database to cache
+some requests.
+
+- Standalone program: The default location is `~/.solana-exporter/persistent.db`. Override this with the `-d` flag.
+- Docker container: The location cannot be overridden, the exporter expects a database to be mounted in `/exporter/`.
