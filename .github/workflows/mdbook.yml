@@ -3,12 +3,7 @@ name: github pages
 on:
   release:
     types: [published]
-
-# on:
-#   push:
-#     branches:
-#       - main
-#   pull_request:
+  pull_request:
 
 defaults:
   run:
