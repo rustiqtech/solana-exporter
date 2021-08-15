@@ -12,9 +12,9 @@ After installation, run
 ```
 solana-exporter generate
 ```
-to set up a default configuration file, and the directory where the exporter's persistent database will live.
-
-By default, the `generate` command will place a config file inside `~/.solana-exporter`.
+to set up a default configuration file. By default, the `generate` command will place a config file inside
+`~/.solana-exporter`; this directory will be automatically created, unless the `-o` flag is present to override
+the output location.
 
 ## Running as a service
 

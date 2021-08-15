@@ -1,6 +1,10 @@
 # Configuration
 
-After running `solana-exporter generate`, a template config file will be created.
+After running `solana-exporter generate`, a template config file will be created in either the specified location or
+the default directory (`~/.solana-exporter`). This page explains the individual variables and how they affect the
+exporter.
+
+## Sample configuration
 
 ```toml
 rpc = 'http://localhost:8899'
