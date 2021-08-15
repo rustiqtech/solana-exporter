@@ -8,11 +8,7 @@ pub struct Whitelist(pub HashSet<String>);
 
 impl Whitelist {
     pub fn contains(&self, value: &str) -> bool {
-        if self.0.is_empty() {
-            true
-        } else {
-            self.0.contains(value)
-        }
+        self.0.is_empty() || self.0.contains(value)
     }
 }
 
