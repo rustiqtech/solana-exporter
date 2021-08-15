@@ -37,14 +37,18 @@ WantedBy=multi-user.target
 
 # Running as a Docker container
 
-`solana-exporter` is also available as a container.
+`solana-exporter` is also available as a container which can be pulled by
 
+```shell
+docker pull rustiq/solana-exporter:0.4.0
+```
+
+Then run it with
 ```shell
 docker run -d \
 -v /path/to/your/config.toml:/etc/solana-exporter/config.toml \
 -v solana-exporter-data:/exporter solana-exporter
 ```
-TODO: What is the full name of the container on Dockerhub?
 
 We recommend that the `config.toml` file be bind-mounted to the container, so you have easy access to it on the host
 machine. However, the persistent database should be stored in a named volume.
