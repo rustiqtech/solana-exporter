@@ -35,7 +35,7 @@ ExecStart=/home/solana/.cargo/bin/solana-exporter
 WantedBy=multi-user.target
 ```
 
-# Running as a Docker container
+##  Running as a Docker container
 
 `solana-exporter` is also available as a container which can be pulled by
 
