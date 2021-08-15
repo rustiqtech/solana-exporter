@@ -31,3 +31,4 @@
   - [solana_average_slot_time]()
 - [Examples](examples/examples.md)
   - [Monitoring a stake pool](examples/monitoring_stakepool.md)
+  - [Using Grafana alerts](examples/alerts.md)
