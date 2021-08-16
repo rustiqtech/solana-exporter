@@ -1,5 +1,6 @@
 //! Statistics of skipped and validated slots.
 
+use crate::config::Whitelist;
 use log::{debug, log_enabled, Level};
 use prometheus_exporter::prometheus::{GaugeVec, IntCounterVec};
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
@@ -23,6 +24,8 @@ pub struct SkippedSlotsMonitor<'a> {
     slot_leaders: BTreeMap<usize, String>,
     /// `true` iff `SkippedSlotMonitor::export_skipped_slots` already ran.
     already_ran: bool,
+    /// Whitelist of pubkeys
+    whitelist: Whitelist,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -47,6 +50,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
         client: &'a RpcClient,
         leader_slots: &'a IntCounterVec,
         skipped_slot_percent: &'a GaugeVec,
+        whitelist: Whitelist,
     ) -> Self {
         Self {
             client,
@@ -56,6 +60,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
             slot_index: 0,
             slot_leaders: Default::default(),
             already_ran: false,
+            whitelist,
         }
     }
 
@@ -63,7 +68,11 @@ impl<'a> SkippedSlotsMonitor<'a> {
     pub fn export_skipped_slots(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         if self.epoch_number != epoch_info.epoch {
             // Update the monitor state.
-            self.slot_leaders = self.get_slot_leaders(None)?;
+            self.slot_leaders = self
+                .get_slot_leaders(None)?
+                .into_iter()
+                .filter(|(_, leader)| self.whitelist.contains(leader))
+                .collect();
             self.epoch_number = epoch_info.epoch;
             self.slot_index = epoch_info.slot_index;
             debug!("SkippedSlotsMonitor state updated");

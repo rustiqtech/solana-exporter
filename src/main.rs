@@ -142,8 +142,12 @@ and then put real values there.",
     );
 
     let gauges = PrometheusGauges::new(config.pubkey_whitelist.clone());
-    let mut skipped_slots_monitor =
-        SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
+    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(
+        &client,
+        &gauges.leader_slots,
+        &gauges.skipped_slot_percent,
+        config.pubkey_whitelist.clone(),
+    );
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
         &gauges.current_staking_apy,

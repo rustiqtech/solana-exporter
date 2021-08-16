@@ -1,5 +1,5 @@
 use crate::config::Whitelist;
-use crate::rewards::caching::{RewardsCache, PubkeyVoterApyMapping};
+use crate::rewards::caching::{PubkeyVoterApyMapping, RewardsCache};
 use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
 use log::debug;
@@ -248,7 +248,9 @@ impl<'a> RewardsMonitor<'a> {
         });
 
         // Fetched pubkeys from cache
-        let cached_apys = self.cache.get_epoch_apy(current_epoch)?
+        let cached_apys = self
+            .cache
+            .get_epoch_apy(current_epoch)?
             .unwrap_or_default()
             .into_iter()
             .filter(|(pk, _)| self.whitelist.contains(&pk.to_string()))
