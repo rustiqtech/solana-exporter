@@ -103,7 +103,13 @@ impl<'a> SkippedSlotsMonitor<'a> {
         );
         let mut feed = self.leader_slots.local();
         for slot_in_epoch in range_start..range_end {
-            let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
+            // If there is no slot then it must have been filtered because of whitelist.
+            let leader = if let Some(leader) = self.slot_leaders.get(&(slot_in_epoch as usize)) {
+                leader
+            } else {
+                continue;
+            };
+
             let absolute_slot = first_slot + slot_in_epoch;
             let status = if confirmed_blocks.binary_search(&absolute_slot).is_ok() {
                 SlotStatus::Validated
