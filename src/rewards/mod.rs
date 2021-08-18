@@ -105,7 +105,7 @@ impl<'a> RewardsMonitor<'a> {
     pub fn export_rewards(
         &mut self,
         epoch_info: &EpochInfo,
-        vote_pubkey_whitelist: &HashSet<Pubkey>,
+        vote_pubkey_whitelist: &Whitelist,
     ) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
 
@@ -145,15 +145,14 @@ impl<'a> RewardsMonitor<'a> {
     fn calculate_validator_rewards(
         &self,
         epoch: Epoch,
-        vote_pubkey_whitelist: &HashSet<Pubkey>,
+        vote_pubkey_whitelist: &Whitelist,
     ) -> anyhow::Result<Option<HashSet<ValidatorReward>>> {
         Ok(self.cache.get_epoch_rewards(epoch)?.map(|rewards| {
             rewards
                 .into_iter()
                 .filter(|r| {
                     r.reward_type == Some(RewardType::Voting)
-                        && (vote_pubkey_whitelist.is_empty()
-                            || vote_pubkey_whitelist.contains(r.pubkey))
+                        && vote_pubkey_whitelist.contains(&r.pubkey)
                 })
                 .map(|r| ValidatorReward {
                     voter: r.pubkey,

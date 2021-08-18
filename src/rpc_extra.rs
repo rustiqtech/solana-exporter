@@ -1,7 +1,6 @@
 use crate::config::Whitelist;
-use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountInfo};
+use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
 use solana_sdk::clock::Epoch;
-use std::collections::HashSet;
 
 /// Applies `f` to the first block in `epoch`.
 pub fn with_first_block<F, A>(client: &RpcClient, epoch: Epoch, f: F) -> anyhow::Result<Option<A>>
@@ -22,14 +21,14 @@ where
 }
 
 /// Maps node pubkeys to vote pubkeys based on the information provided in `vote_accounts`.
-pub fn vote_pubkeys(
-    node_pubkeys: &Whitelist,
-    vote_accounts: &RpcVoteAccountStatus,
-) -> impl Iterator<Item = String> {
-    accounts
-        .current
-        .iter()
-        .chain(vote_accounts.delinquent.iter())
-        .filter(|acc| node_pubkeys.contains(acc.node_pubkey))
-        .map(|acc| acc.vote_pubkey)
+pub fn vote_pubkeys(node_pubkeys: &Whitelist, vote_accounts: &RpcVoteAccountStatus) -> Whitelist {
+    Whitelist(
+        vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+            .filter(|acc| node_pubkeys.0.contains(&acc.node_pubkey))
+            .map(|acc| acc.vote_pubkey.clone())
+            .collect(),
+    )
 }

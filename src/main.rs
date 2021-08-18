@@ -154,7 +154,7 @@ and then put real values there.",
         &gauges.average_staking_apy,
         &gauges.validator_rewards,
         &rewards_cache,
-        config.pubkey_whitelist,
+        config.pubkey_whitelist.clone(),
     );
 
     loop {
@@ -163,7 +163,7 @@ and then put real values there.",
 
         // Get metrics we need
         let vote_accounts = client.get_vote_accounts()?;
-        let vote_pubkey_whitelist: HashSet<String> =
+        let vote_pubkey_whitelist =
             rpc_extra::vote_pubkeys(&config.pubkey_whitelist, &vote_accounts);
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
