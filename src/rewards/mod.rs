@@ -102,7 +102,11 @@ impl<'a> RewardsMonitor<'a> {
     }
 
     /// Exports reward metrics. APY values will not be re-calculated more than once an epoch.
-    pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
+    pub fn export_rewards(
+        &mut self,
+        epoch_info: &EpochInfo,
+        vote_pubkey_whitelist: &HashSet<Pubkey>,
+    ) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch
@@ -126,7 +130,7 @@ impl<'a> RewardsMonitor<'a> {
             }
 
             let validator_rewards = self
-                .calculate_validator_rewards(epoch)?
+                .calculate_validator_rewards(epoch, vote_pubkey_whitelist)?
                 .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
             for v in validator_rewards {
                 self.validator_rewards
@@ -141,11 +145,16 @@ impl<'a> RewardsMonitor<'a> {
     fn calculate_validator_rewards(
         &self,
         epoch: Epoch,
+        vote_pubkey_whitelist: &HashSet<Pubkey>,
     ) -> anyhow::Result<Option<HashSet<ValidatorReward>>> {
         Ok(self.cache.get_epoch_rewards(epoch)?.map(|rewards| {
             rewards
                 .into_iter()
-                .filter(|r| r.reward_type == Some(RewardType::Voting))
+                .filter(|r| {
+                    r.reward_type == Some(RewardType::Voting)
+                        && (vote_pubkey_whitelist.is_empty()
+                            || vote_pubkey_whitelist.contains(r.pubkey))
+                })
                 .map(|r| ValidatorReward {
                     voter: r.pubkey,
                     lamports: r.post_balance,
