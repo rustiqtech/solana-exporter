@@ -1,4 +1,5 @@
-use solana_client::rpc_client::RpcClient;
+use crate::config::Whitelist;
+use solana_client::{rpc_client::RpcClient, rpc_response::RpcVoteAccountStatus};
 use solana_sdk::clock::Epoch;
 
 /// Applies `f` to the first block in `epoch`.
@@ -17,4 +18,17 @@ where
     } else {
         Ok(None)
     }
+}
+
+/// Maps node pubkeys to vote pubkeys based on the information provided in `vote_accounts`.
+pub fn vote_pubkeys(node_pubkeys: &Whitelist, vote_accounts: &RpcVoteAccountStatus) -> Whitelist {
+    Whitelist(
+        vote_accounts
+            .current
+            .iter()
+            .chain(vote_accounts.delinquent.iter())
+            .filter(|acc| node_pubkeys.0.contains(&acc.node_pubkey))
+            .map(|acc| acc.vote_pubkey.clone())
+            .collect(),
+    )
 }
