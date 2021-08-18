@@ -128,7 +128,11 @@ impl<'a> SkippedSlotsMonitor<'a> {
 
         // Update skipped slot percentages.
         for slot_in_epoch in range_start..range_end {
-            let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
+            let leader = if let Some(leader) = self.slot_leaders.get(&(slot_in_epoch as usize)) {
+                leader
+            } else {
+                continue;
+            };
             let get_count = |slot_status: SlotStatus| {
                 self.leader_slots
                     .get_metric_with_label_values(&[leader, &slot_status.to_string()])
