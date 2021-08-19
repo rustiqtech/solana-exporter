@@ -1,4 +1,5 @@
-use crate::rewards::caching::RewardsCache;
+use crate::config::Whitelist;
+use crate::rewards::caching::{PubkeyVoterApyMapping, RewardsCache};
 use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
 use log::debug;
@@ -76,6 +77,8 @@ pub struct RewardsMonitor<'a> {
     validator_rewards: &'a IntGaugeVec,
     /// Caching database for rewards
     cache: &'a RewardsCache,
+    /// Pubkeys whitelist
+    whitelist: Whitelist,
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -86,6 +89,7 @@ impl<'a> RewardsMonitor<'a> {
         average_staking_apy: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
         rewards_cache: &'a RewardsCache,
+        whitelist: Whitelist,
     ) -> Self {
         Self {
             client,
@@ -93,11 +97,16 @@ impl<'a> RewardsMonitor<'a> {
             average_staking_apy,
             validator_rewards,
             cache: rewards_cache,
+            whitelist,
         }
     }
 
     /// Exports reward metrics. APY values will not be re-calculated more than once an epoch.
-    pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
+    pub fn export_rewards(
+        &mut self,
+        epoch_info: &EpochInfo,
+        vote_pubkey_whitelist: &Whitelist,
+    ) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch
@@ -121,7 +130,7 @@ impl<'a> RewardsMonitor<'a> {
             }
 
             let validator_rewards = self
-                .calculate_validator_rewards(epoch)?
+                .calculate_validator_rewards(epoch, vote_pubkey_whitelist)?
                 .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
             for v in validator_rewards {
                 self.validator_rewards
@@ -136,11 +145,15 @@ impl<'a> RewardsMonitor<'a> {
     fn calculate_validator_rewards(
         &self,
         epoch: Epoch,
+        vote_pubkey_whitelist: &Whitelist,
     ) -> anyhow::Result<Option<HashSet<ValidatorReward>>> {
         Ok(self.cache.get_epoch_rewards(epoch)?.map(|rewards| {
             rewards
                 .into_iter()
-                .filter(|r| r.reward_type == Some(RewardType::Voting))
+                .filter(|r| {
+                    r.reward_type == Some(RewardType::Voting)
+                        && vote_pubkey_whitelist.contains(&r.pubkey)
+                })
                 .map(|r| ValidatorReward {
                     voter: r.pubkey,
                     lamports: r.post_balance,
@@ -160,13 +173,10 @@ impl<'a> RewardsMonitor<'a> {
             Ok(apys)
         } else {
             // Filling historical gaps
-            let (mut _rewards, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
+            let (_, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
             // Fill current epoch and find APY
-            let mapping = self.fill_current_epoch_and_find_apy(
-                current_epoch_info,
-                /* &mut rewards, */ &mut apys,
-            )?;
+            let mapping = self.fill_current_epoch_and_find_apy(current_epoch_info, &mut apys)?;
 
             // Write to database
             self.cache
@@ -190,12 +200,21 @@ impl<'a> RewardsMonitor<'a> {
             // Historical rewards
             let historical_rewards = self
                 .get_rewards_for_epoch(epoch)?
-                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
+                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?
+                .into_iter()
+                .filter(|reward| self.whitelist.contains(&reward.pubkey))
+                .collect::<Vec<_>>();
             for reward in historical_rewards {
                 rewards.insert((reward.pubkey.parse()?, epoch), reward);
             }
 
-            let historical_apys = self.cache.get_epoch_apy(epoch)?.unwrap_or_default();
+            let historical_apys = self
+                .cache
+                .get_epoch_apy(epoch)?
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|(pk, _)| self.whitelist.contains(&pk.to_string()));
+
             apys.extend(
                 historical_apys
                     .into_iter()
@@ -217,7 +236,9 @@ impl<'a> RewardsMonitor<'a> {
 
         let current_rewards = self
             .get_rewards_for_epoch(current_epoch)?
-            .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
+            .ok_or_else(|| anyhow!("current epoch has no rewards"))?
+            .into_iter()
+            .filter(|reward| self.whitelist.contains(&reward.pubkey));
 
         // Extract into staking rewards and validator rewards.
         let staking_rewards = current_rewards.into_iter().filter_map(|r| {
@@ -235,7 +256,13 @@ impl<'a> RewardsMonitor<'a> {
         });
 
         // Fetched pubkeys from cache
-        let cached_apys = self.cache.get_epoch_apy(current_epoch)?.unwrap_or_default();
+        let cached_apys = self
+            .cache
+            .get_epoch_apy(current_epoch)?
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(pk, _)| self.whitelist.contains(&pk.to_string()))
+            .collect::<PubkeyVoterApyMapping>();
 
         // Use cached pubkeys to find what keys we need to query
         let cached_pubkeys: BTreeSet<_> = cached_apys.keys().collect();

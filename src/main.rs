@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
+use crate::config::{ExporterConfig, Whitelist, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
@@ -27,7 +27,6 @@ use anyhow::Context;
 use clap::{load_yaml, App};
 use log::{debug, warn};
 use solana_client::rpc_client::RpcClient;
-use std::collections::HashSet;
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::net::SocketAddr;
@@ -61,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: Some(MaxMindAPIKey::new("username", "password")),
-                pubkey_whitelist: HashSet::default(),
+                pubkey_whitelist: Whitelist::default(),
             };
 
             let location = sc
@@ -142,15 +141,20 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let gauges = PrometheusGauges::new();
-    let mut skipped_slots_monitor =
-        SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
+    let gauges = PrometheusGauges::new(config.pubkey_whitelist.clone());
+    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(
+        &client,
+        &gauges.leader_slots,
+        &gauges.skipped_slot_percent,
+        config.pubkey_whitelist.clone(),
+    );
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
         &gauges.current_staking_apy,
         &gauges.average_staking_apy,
         &gauges.validator_rewards,
         &rewards_cache,
+        config.pubkey_whitelist.clone(),
     );
 
     loop {
@@ -159,6 +163,8 @@ and then put real values there.",
 
         // Get metrics we need
         let vote_accounts = client.get_vote_accounts()?;
+        let vote_pubkey_whitelist =
+            rpc_extra::vote_pubkeys(&config.pubkey_whitelist, &vote_accounts);
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
 
@@ -168,17 +174,11 @@ and then put real values there.",
         gauges
             .export_epoch_info(&epoch_info, &client)
             .context("Failed to export epoch info metrics")?;
-        gauges.export_nodes_info(&nodes, &client, &config.pubkey_whitelist)?;
+        gauges.export_nodes_info(&nodes, &client)?;
         if let Some(maxmind) = config.maxmind.clone() {
             // If the MaxMind API is configured, submit queries for any uncached IPs.
             gauges
-                .export_ip_addresses(
-                    &nodes,
-                    &vote_accounts,
-                    &geolocation_cache,
-                    &config.pubkey_whitelist,
-                    &maxmind,
-                )
+                .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &maxmind)
                 .await
                 .context("Failed to export IP address info metrics")?;
         }
@@ -186,7 +186,7 @@ and then put real values there.",
             .export_skipped_slots(&epoch_info)
             .context("Failed to export skipped slots")?;
         rewards_monitor
-            .export_rewards(&epoch_info)
+            .export_rewards(&epoch_info, &vote_pubkey_whitelist)
             .context("Failed to export rewards")?;
     }
 }

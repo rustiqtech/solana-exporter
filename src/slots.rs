@@ -1,5 +1,6 @@
 //! Statistics of skipped and validated slots.
 
+use crate::config::Whitelist;
 use log::{debug, log_enabled, Level};
 use prometheus_exporter::prometheus::{GaugeVec, IntCounterVec};
 use solana_client::{client_error::ClientError, rpc_client::RpcClient};
@@ -23,6 +24,8 @@ pub struct SkippedSlotsMonitor<'a> {
     slot_leaders: BTreeMap<usize, String>,
     /// `true` iff `SkippedSlotMonitor::export_skipped_slots` already ran.
     already_ran: bool,
+    /// Whitelist of pubkeys
+    whitelist: Whitelist,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -47,6 +50,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
         client: &'a RpcClient,
         leader_slots: &'a IntCounterVec,
         skipped_slot_percent: &'a GaugeVec,
+        whitelist: Whitelist,
     ) -> Self {
         Self {
             client,
@@ -56,6 +60,7 @@ impl<'a> SkippedSlotsMonitor<'a> {
             slot_index: 0,
             slot_leaders: Default::default(),
             already_ran: false,
+            whitelist,
         }
     }
 
@@ -63,7 +68,11 @@ impl<'a> SkippedSlotsMonitor<'a> {
     pub fn export_skipped_slots(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
         if self.epoch_number != epoch_info.epoch {
             // Update the monitor state.
-            self.slot_leaders = self.get_slot_leaders(None)?;
+            self.slot_leaders = self
+                .get_slot_leaders(None)?
+                .into_iter()
+                .filter(|(_, leader)| self.whitelist.contains(leader))
+                .collect();
             self.epoch_number = epoch_info.epoch;
             self.slot_index = epoch_info.slot_index;
             debug!("SkippedSlotsMonitor state updated");
@@ -94,7 +103,13 @@ impl<'a> SkippedSlotsMonitor<'a> {
         );
         let mut feed = self.leader_slots.local();
         for slot_in_epoch in range_start..range_end {
-            let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
+            // If there is no slot then it must have been filtered because of whitelist.
+            let leader = if let Some(leader) = self.slot_leaders.get(&(slot_in_epoch as usize)) {
+                leader
+            } else {
+                continue;
+            };
+
             let absolute_slot = first_slot + slot_in_epoch;
             let status = if confirmed_blocks.binary_search(&absolute_slot).is_ok() {
                 SlotStatus::Validated
@@ -113,7 +128,11 @@ impl<'a> SkippedSlotsMonitor<'a> {
 
         // Update skipped slot percentages.
         for slot_in_epoch in range_start..range_end {
-            let leader = &self.slot_leaders[&(slot_in_epoch as usize)];
+            let leader = if let Some(leader) = self.slot_leaders.get(&(slot_in_epoch as usize)) {
+                leader
+            } else {
+                continue;
+            };
             let get_count = |slot_status: SlotStatus| {
                 self.leader_slots
                     .get_metric_with_label_values(&[leader, &slot_status.to_string()])

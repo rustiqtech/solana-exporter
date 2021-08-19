@@ -3,7 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 
-pub type Whitelist = HashSet<String>;
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct Whitelist(pub HashSet<String>);
+
+impl Whitelist {
+    pub fn contains(&self, value: &str) -> bool {
+        self.0.is_empty() || self.0.contains(value)
+    }
+}
 
 pub const CONFIG_FILE_NAME: &str = "config.toml";
 
