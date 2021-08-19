@@ -21,7 +21,7 @@
   - [solana_active_validators_isp_stake](exported_feeds/solana_active_validators_isp_stake.md)
   - [solana_active_validators_dc_stake](exported_feeds/solana_active_validators_dc_stake.md)
   - [solana_leader_slots](exported_feeds/solana_leader_slots.md)
-  - [solana_skipped_slot_percent]()
+  - [solana_skipped_slot_percent](exported_feeds/solana_skipped_slot_percent.md)
   - [solana_current_staking_apy]()
   - [solana_average_staking_apy]()
   - [solana_validator_rewards]()
