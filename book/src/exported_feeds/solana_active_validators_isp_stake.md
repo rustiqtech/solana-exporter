@@ -17,3 +17,7 @@ solana_active_validators_isp_stake{isp_name="Beeline"} 180442822928047
 
 ## Remarks
 This gauge will not be exported if no MaxMind API key is present in `config.toml`.
+
+## Caching
+The output of this gauge relies on cached data; the exporter retains the geolocation information of an IP address
+for one week before considering it stale and re-acquiring it from MaxMind.

@@ -28,3 +28,7 @@ if a city name is available, otherwise:
 ```
 {AS number}-{ISO-3166-1 Alpha-2 code}
 ```
+
+## Caching
+The output of this gauge relies on cached data; the exporter retains the geolocation information of an IP address
+for one week before considering it stale and re-acquiring it from MaxMind.
