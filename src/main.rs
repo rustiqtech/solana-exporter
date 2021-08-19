@@ -154,7 +154,6 @@ and then put real values there.",
         &gauges.average_staking_apy,
         &gauges.validator_rewards,
         &rewards_cache,
-        config.pubkey_whitelist.clone(),
     );
 
     loop {
