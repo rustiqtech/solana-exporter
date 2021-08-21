@@ -1,5 +1,5 @@
 use crate::config::Whitelist;
-use crate::rewards::caching::{PubkeyVoterApyMapping, RewardsCache};
+use crate::rewards::caching::RewardsCache;
 use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
 use log::debug;
@@ -170,8 +170,7 @@ impl<'a> RewardsMonitor<'a> {
             Ok(apys)
         } else {
             // Filling historical gaps
-            let (_, mut apys) =
-                self.fill_historical_epochs(current_epoch_info, vote_pubkey_whitelist)?;
+            let (_, mut apys) = self.fill_historical_epochs(current_epoch_info)?;
 
             // Fill current epoch and find APY
             let mapping = self.fill_current_epoch_and_find_apy(
@@ -192,7 +191,6 @@ impl<'a> RewardsMonitor<'a> {
     fn fill_historical_epochs(
         &self,
         current_epoch_info: &EpochInfo,
-        vote_pubkey_whitelist: &Whitelist,
     ) -> anyhow::Result<(VoterEpochRewardMap, VoterEpochApyMap)> {
         let current_epoch = current_epoch_info.epoch;
 
@@ -203,20 +201,12 @@ impl<'a> RewardsMonitor<'a> {
             // Historical rewards
             let historical_rewards = self
                 .get_rewards_for_epoch(epoch)?
-                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?
-                .into_iter()
-                .filter(|reward| vote_pubkey_whitelist.contains(&reward.pubkey))
-                .collect::<Vec<_>>();
+                .ok_or_else(|| anyhow!("historical epoch has no rewards"))?;
             for reward in historical_rewards {
                 rewards.insert((reward.pubkey.parse()?, epoch), reward);
             }
 
-            let historical_apys = self
-                .cache
-                .get_epoch_apy(epoch)?
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|(pk, _)| vote_pubkey_whitelist.contains(&pk.to_string()));
+            let historical_apys = self.cache.get_epoch_apy(epoch)?.unwrap_or_default();
 
             apys.extend(
                 historical_apys
@@ -260,13 +250,7 @@ impl<'a> RewardsMonitor<'a> {
         });
 
         // Fetched pubkeys from cache
-        let cached_apys = self
-            .cache
-            .get_epoch_apy(current_epoch)?
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|(pk, _)| vote_pubkey_whitelist.contains(&pk.to_string()))
-            .collect::<PubkeyVoterApyMapping>();
+        let cached_apys = self.cache.get_epoch_apy(current_epoch)?.unwrap_or_default();
 
         // Use cached pubkeys to find what keys we need to query
         let cached_pubkeys: BTreeSet<_> = cached_apys.keys().collect();
