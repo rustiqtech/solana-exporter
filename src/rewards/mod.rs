@@ -253,7 +253,7 @@ impl<'a> RewardsMonitor<'a> {
             .get_epoch_apy(current_epoch)?
             .unwrap_or_default()
             .into_iter()
-            .filter(|(_, (voter, _))| vote_pubkey_whitelist.contains(&pk.to_string()))
+            .filter(|(_, (voter, _))| vote_pubkey_whitelist.contains(&voter.to_string()))
             .collect::<PubkeyVoterApyMapping>();
 
         // Use cached pubkeys to find what keys we need to query
