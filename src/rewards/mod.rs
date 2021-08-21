@@ -230,9 +230,7 @@ impl<'a> RewardsMonitor<'a> {
 
         let current_rewards = self
             .get_rewards_for_epoch(current_epoch)?
-            .ok_or_else(|| anyhow!("current epoch has no rewards"))?
-            .into_iter()
-            .filter(|reward| vote_pubkey_whitelist.contains(&reward.pubkey));
+            .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
 
         // Extract into staking rewards and validator rewards.
         let staking_rewards = current_rewards.into_iter().filter_map(|r| {
