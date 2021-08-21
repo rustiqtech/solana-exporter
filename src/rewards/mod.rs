@@ -1,5 +1,5 @@
 use crate::config::Whitelist;
-use crate::rewards::caching::RewardsCache;
+use crate::rewards::caching::{PubkeyVoterApyMapping, RewardsCache};
 use crate::rpc_extra::with_first_block;
 use anyhow::anyhow;
 use log::debug;
@@ -250,7 +250,13 @@ impl<'a> RewardsMonitor<'a> {
         });
 
         // Fetched pubkeys from cache
-        let cached_apys = self.cache.get_epoch_apy(current_epoch)?.unwrap_or_default();
+        let cached_apys = self
+            .cache
+            .get_epoch_apy(current_epoch)?
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(_, (voter, _))| vote_pubkey_whitelist.contains(&pk.to_string()))
+            .collect::<PubkeyVoterApyMapping>();
 
         // Use cached pubkeys to find what keys we need to query
         let cached_pubkeys: BTreeSet<_> = cached_apys.keys().collect();
