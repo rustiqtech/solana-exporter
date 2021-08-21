@@ -60,7 +60,8 @@ async fn main() -> anyhow::Result<()> {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: Some(MaxMindAPIKey::new("username", "password")),
-                pubkey_whitelist: Whitelist::default(),
+                node_whitelist: Some(Whitelist::default()),
+                staking_account_whitelist: None,
             };
 
             let location = sc
@@ -141,19 +142,22 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let gauges = PrometheusGauges::new(config.pubkey_whitelist.clone());
+    let node_whitelist = config.node_whitelist.unwrap_or_default();
+    let gauges = PrometheusGauges::new(node_whitelist.clone());
     let mut skipped_slots_monitor = SkippedSlotsMonitor::new(
         &client,
         &gauges.leader_slots,
         &gauges.skipped_slot_percent,
-        config.pubkey_whitelist.clone(),
+        node_whitelist.clone(),
     );
+    let staking_account_whitelist = config.staking_account_whitelist.unwrap_or_default();
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
         &gauges.current_staking_apy,
         &gauges.average_staking_apy,
         &gauges.validator_rewards,
         &rewards_cache,
+        &staking_account_whitelist,
     );
 
     loop {
@@ -162,8 +166,7 @@ and then put real values there.",
 
         // Get metrics we need
         let vote_accounts = client.get_vote_accounts()?;
-        let vote_pubkey_whitelist =
-            rpc_extra::vote_pubkeys(&config.pubkey_whitelist, &vote_accounts);
+        let vote_pubkey_whitelist = rpc_extra::vote_pubkeys(&node_whitelist, &vote_accounts);
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
 
