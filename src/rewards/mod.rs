@@ -77,6 +77,8 @@ pub struct RewardsMonitor<'a> {
     validator_rewards: &'a IntGaugeVec,
     /// Caching database for rewards
     cache: &'a RewardsCache,
+    /// The whitelist of staking account pubkeys constraining APY calculations.
+    staking_account_whitelist: &'a Whitelist,
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -87,6 +89,7 @@ impl<'a> RewardsMonitor<'a> {
         average_staking_apy: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
         rewards_cache: &'a RewardsCache,
+        staking_account_whitelist: &'a Whitelist,
     ) -> Self {
         Self {
             client,
@@ -94,6 +97,7 @@ impl<'a> RewardsMonitor<'a> {
             average_staking_apy,
             validator_rewards,
             cache: rewards_cache,
+            staking_account_whitelist,
         }
     }
 
@@ -234,14 +238,18 @@ impl<'a> RewardsMonitor<'a> {
 
         // Extract into staking rewards and validator rewards.
         let staking_rewards = current_rewards.into_iter().filter_map(|r| {
-            if r.reward_type != Some(RewardType::Staking) {
-                None
-            } else if let Ok(pubkey) = r.pubkey.parse() {
-                Some(StakingReward {
-                    pubkey,
-                    lamports: r.lamports,
-                    post_balance: r.post_balance,
-                })
+            if r.reward_type == Some(RewardType::Staking)
+                && self.staking_account_whitelist.contains(&r.pubkey)
+            {
+                if let Ok(pubkey) = r.pubkey.parse() {
+                    Some(StakingReward {
+                        pubkey,
+                        lamports: r.lamports,
+                        post_balance: r.post_balance,
+                    })
+                } else {
+                    None
+                }
             } else {
                 None
             }
