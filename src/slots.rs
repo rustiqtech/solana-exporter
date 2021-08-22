@@ -93,9 +93,20 @@ impl<'a> SkippedSlotsMonitor<'a> {
         let range_end = epoch_info.slot_index;
         let abs_range_end = first_slot + range_end;
 
-        let mut confirmed_blocks = self
-            .client
-            .get_blocks(abs_range_start, Some(abs_range_end))?;
+        let mut confirmed_blocks = vec![];
+        const SLOT_GET_BLOCK_STEP: usize = 1_000;
+        for abs_range_step in (abs_range_start..abs_range_end).step_by(SLOT_GET_BLOCK_STEP) {
+            let abs_range_step_end =
+                abs_range_end.min(abs_range_step + SLOT_GET_BLOCK_STEP as u64 - 1);
+            debug!(
+                "Getting confirmed blocks from {} to {}",
+                abs_range_step, abs_range_step_end
+            );
+            confirmed_blocks.extend(
+                self.client
+                    .get_blocks(abs_range_step, Some(abs_range_step_end))?,
+            );
+        }
         confirmed_blocks.sort_unstable();
         debug!(
             "Confirmed blocks from {} to {}: {:?}",
