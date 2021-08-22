@@ -8,6 +8,9 @@ use solana_sdk::epoch_info::EpochInfo;
 use std::collections::BTreeMap;
 use std::fmt::{self, Display, Formatter};
 
+/// Number of blocks to fetch per request.
+const SLOT_GET_BLOCK_STEP: usize = 1_000;
+
 /// The monitor of skipped and validated slots per validator with minimal internal state.
 pub struct SkippedSlotsMonitor<'a> {
     /// Shared Solana RPC client.
@@ -94,7 +97,6 @@ impl<'a> SkippedSlotsMonitor<'a> {
         let abs_range_end = first_slot + range_end;
 
         let mut confirmed_blocks = vec![];
-        const SLOT_GET_BLOCK_STEP: usize = 1_000;
         for abs_range_step in (abs_range_start..abs_range_end).step_by(SLOT_GET_BLOCK_STEP) {
             let abs_range_step_end =
                 abs_range_end.min(abs_range_step + SLOT_GET_BLOCK_STEP as u64 - 1);
