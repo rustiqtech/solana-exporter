@@ -20,19 +20,6 @@ where
     }
 }
 
-// /// Maps node pubkeys to vote pubkeys based on the information provided in `vote_accounts`.
-// pub fn vote_pubkeys(node_pubkeys: &Whitelist, vote_accounts: &RpcVoteAccountStatus) -> Whitelist {
-//     Whitelist(
-//         vote_accounts
-//             .current
-//             .iter()
-//             .chain(vote_accounts.delinquent.iter())
-//             .filter(|acc| node_pubkeys.contains(&acc.node_pubkey))
-//             .map(|acc| acc.vote_pubkey.clone())
-//             .collect(),
-//     )
-// }
-
 /// Maps vote pubkeys to node pubkeys based on the information provided in `vote_accounts`.
 pub fn node_pubkeys(vote_pubkeys: &Whitelist, vote_accounts: &RpcVoteAccountStatus) -> Whitelist {
     Whitelist(
