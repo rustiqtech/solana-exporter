@@ -143,17 +143,10 @@ and then put real values there.",
     );
 
     let vote_pubkey_whitelist = config.vote_account_whitelist.unwrap_or_default();
-
-    let vote_accounts = client.get_vote_accounts()?;
-    let node_whitelist = rpc_extra::node_pubkeys(&vote_pubkey_whitelist, &vote_accounts);
-
     let gauges = PrometheusGauges::new(vote_pubkey_whitelist.clone());
-    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(
-        &client,
-        &gauges.leader_slots,
-        &gauges.skipped_slot_percent,
-        node_whitelist.clone(),
-    );
+
+    let mut skipped_slots_monitor =
+        SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
     let staking_account_whitelist = config.staking_account_whitelist.unwrap_or_default();
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
@@ -171,6 +164,8 @@ and then put real values there.",
         // Get metrics we need
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
+        let vote_accounts = client.get_vote_accounts()?;
+        let node_whitelist = rpc_extra::node_pubkeys(&vote_pubkey_whitelist, &vote_accounts);
 
         gauges
             .export_vote_accounts(&vote_accounts)
@@ -187,7 +182,7 @@ and then put real values there.",
                 .context("Failed to export IP address info metrics")?;
         }
         skipped_slots_monitor
-            .export_skipped_slots(&epoch_info)
+            .export_skipped_slots(&epoch_info, &node_whitelist)
             .context("Failed to export skipped slots")?;
         rewards_monitor
             .export_rewards(&epoch_info, &vote_pubkey_whitelist)
