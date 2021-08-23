@@ -20,8 +20,8 @@ pub struct ExporterConfig {
     pub rpc: String,
     /// Prometheus target socket address.
     pub target: SocketAddr,
-    /// Whitelisted node pubkeys.
-    pub node_whitelist: Option<Whitelist>,
+    /// Whitelisted vote account pubkeys.
+    pub vote_account_whitelist: Option<Whitelist>,
     /// Whitelisted staking account pubkeys for APY calculation
     pub staking_account_whitelist: Option<Whitelist>,
     /// Maxmind API username and password.
