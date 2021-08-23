@@ -142,8 +142,8 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let vote_pubkey_whitelist = config.vote_account_whitelist.unwrap_or_default();
-    let gauges = PrometheusGauges::new(vote_pubkey_whitelist.clone());
+    let vote_whitelist = config.vote_account_whitelist.unwrap_or_default();
+    let gauges = PrometheusGauges::new();
 
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
@@ -165,19 +165,25 @@ and then put real values there.",
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
         let vote_accounts = client.get_vote_accounts()?;
-        let node_whitelist = rpc_extra::node_pubkeys(&vote_pubkey_whitelist, &vote_accounts);
+        let node_whitelist = rpc_extra::node_pubkeys(&vote_whitelist, &vote_accounts);
 
         gauges
-            .export_vote_accounts(&vote_accounts)
+            .export_vote_accounts(&vote_accounts, &vote_whitelist)
             .context("Failed to export vote account metrics")?;
         gauges
             .export_epoch_info(&epoch_info, &client)
             .context("Failed to export epoch info metrics")?;
-        gauges.export_nodes_info(&nodes, &client)?;
+        gauges.export_nodes_info(&nodes, &client, &node_whitelist)?;
         if let Some(maxmind) = config.maxmind.clone() {
             // If the MaxMind API is configured, submit queries for any uncached IPs.
             gauges
-                .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &maxmind)
+                .export_ip_addresses(
+                    &nodes,
+                    &vote_accounts,
+                    &geolocation_cache,
+                    &maxmind,
+                    &node_whitelist,
+                )
                 .await
                 .context("Failed to export IP address info metrics")?;
         }
@@ -185,7 +191,7 @@ and then put real values there.",
             .export_skipped_slots(&epoch_info, &node_whitelist)
             .context("Failed to export skipped slots")?;
         rewards_monitor
-            .export_rewards(&epoch_info, &vote_pubkey_whitelist)
+            .export_rewards(&epoch_info, &vote_whitelist)
             .context("Failed to export rewards")?;
     }
 }
