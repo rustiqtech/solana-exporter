@@ -27,7 +27,7 @@ pub fn node_pubkeys(vote_pubkeys: &Whitelist, vote_accounts: &RpcVoteAccountStat
             .current
             .iter()
             .chain(vote_accounts.delinquent.iter())
-            .filter(|account| vote_pubkeys.contains(&account.node_pubkey))
+            .filter(|account| vote_pubkeys.contains(&account.vote_pubkey))
             .map(|account| account.node_pubkey.clone())
             .collect(),
     )
