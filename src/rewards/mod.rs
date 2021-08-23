@@ -105,13 +105,13 @@ impl<'a> RewardsMonitor<'a> {
     pub fn export_rewards(
         &mut self,
         epoch_info: &EpochInfo,
-        vote_pubkey_whitelist: &Whitelist,
+        vote_whitelist: &Whitelist,
     ) -> anyhow::Result<()> {
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch
         if self.get_rewards_for_epoch(epoch)?.is_some() {
-            let staking_apys = self.calculate_staking_rewards(epoch_info, vote_pubkey_whitelist)?;
+            let staking_apys = self.calculate_staking_rewards(epoch_info, vote_whitelist)?;
 
             for (
                 voter,
@@ -130,7 +130,7 @@ impl<'a> RewardsMonitor<'a> {
             }
 
             let validator_rewards = self
-                .calculate_validator_rewards(epoch, vote_pubkey_whitelist)?
+                .calculate_validator_rewards(epoch, vote_whitelist)?
                 .ok_or_else(|| anyhow!("current epoch has no rewards"))?;
             for v in validator_rewards {
                 self.validator_rewards
@@ -166,7 +166,7 @@ impl<'a> RewardsMonitor<'a> {
     fn calculate_staking_rewards(
         &self,
         current_epoch_info: &EpochInfo,
-        vote_pubkey_whitelist: &Whitelist,
+        vote_whitelist: &Whitelist,
     ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
         // Since during an epoch the APY cannot change, make sure that all information about an epoch
         // is only calculated once, and then written to database to prevent inconsistent exporting.
@@ -180,7 +180,7 @@ impl<'a> RewardsMonitor<'a> {
             let mapping = self.fill_current_epoch_and_find_apy(
                 current_epoch_info,
                 &mut apys,
-                vote_pubkey_whitelist,
+                vote_whitelist,
             )?;
 
             // Write to database
@@ -228,7 +228,7 @@ impl<'a> RewardsMonitor<'a> {
         &self,
         current_epoch_info: &EpochInfo,
         apys: &mut VoterEpochApyMap,
-        vote_pubkey_whitelist: &Whitelist,
+        vote_whitelist: &Whitelist,
     ) -> anyhow::Result<HashMap<Pubkey, VoterApy>> {
         let current_epoch = current_epoch_info.epoch;
 
@@ -261,7 +261,7 @@ impl<'a> RewardsMonitor<'a> {
             .get_epoch_apy(current_epoch)?
             .unwrap_or_default()
             .into_iter()
-            .filter(|(_, (voter, _))| vote_pubkey_whitelist.contains(&voter.to_string()))
+            .filter(|(_, (voter, _))| vote_whitelist.contains(&voter.to_string()))
             .collect::<PubkeyVoterApyMapping>();
 
         // Use cached pubkeys to find what keys we need to query
