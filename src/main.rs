@@ -60,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: Some(MaxMindAPIKey::new("username", "password")),
-                node_whitelist: Some(Whitelist::default()),
+                vote_account_whitelist: Some(Whitelist::default()),
                 staking_account_whitelist: None,
             };
 
@@ -142,15 +142,12 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let node_whitelist = config.node_whitelist.unwrap_or_default();
-    let gauges = PrometheusGauges::new(node_whitelist.clone());
-    let mut skipped_slots_monitor = SkippedSlotsMonitor::new(
-        &client,
-        &gauges.leader_slots,
-        &gauges.skipped_slot_percent,
-        node_whitelist.clone(),
-    );
+    let vote_accounts_whitelist = config.vote_account_whitelist.unwrap_or_default();
     let staking_account_whitelist = config.staking_account_whitelist.unwrap_or_default();
+
+    let gauges = PrometheusGauges::new(vote_accounts_whitelist.clone());
+    let mut skipped_slots_monitor =
+        SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
         &gauges.current_staking_apy,
@@ -158,6 +155,7 @@ and then put real values there.",
         &gauges.validator_rewards,
         &rewards_cache,
         &staking_account_whitelist,
+        &vote_accounts_whitelist,
     );
 
     loop {
@@ -165,10 +163,10 @@ and then put real values there.",
         debug!("Updating metrics");
 
         // Get metrics we need
-        let vote_accounts = client.get_vote_accounts()?;
-        let vote_pubkey_whitelist = rpc_extra::vote_pubkeys(&node_whitelist, &vote_accounts);
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
+        let vote_accounts = client.get_vote_accounts()?;
+        let node_whitelist = rpc_extra::node_pubkeys(&vote_accounts_whitelist, &vote_accounts);
 
         gauges
             .export_vote_accounts(&vote_accounts)
@@ -176,19 +174,25 @@ and then put real values there.",
         gauges
             .export_epoch_info(&epoch_info, &client)
             .context("Failed to export epoch info metrics")?;
-        gauges.export_nodes_info(&nodes, &client)?;
+        gauges.export_nodes_info(&nodes, &client, &node_whitelist)?;
         if let Some(maxmind) = config.maxmind.clone() {
             // If the MaxMind API is configured, submit queries for any uncached IPs.
             gauges
-                .export_ip_addresses(&nodes, &vote_accounts, &geolocation_cache, &maxmind)
+                .export_ip_addresses(
+                    &nodes,
+                    &vote_accounts,
+                    &geolocation_cache,
+                    &maxmind,
+                    &node_whitelist,
+                )
                 .await
                 .context("Failed to export IP address info metrics")?;
         }
         skipped_slots_monitor
-            .export_skipped_slots(&epoch_info)
+            .export_skipped_slots(&epoch_info, &node_whitelist)
             .context("Failed to export skipped slots")?;
         rewards_monitor
-            .export_rewards(&epoch_info, &vote_pubkey_whitelist)
+            .export_rewards(&epoch_info)
             .context("Failed to export rewards")?;
     }
 }
