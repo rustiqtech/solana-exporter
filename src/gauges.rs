@@ -51,11 +51,12 @@ pub struct PrometheusGauges {
     pub average_slot_time: Gauge,
     // Connection pool for querying
     client: reqwest::Client,
+    vote_accounts_whitelist: Whitelist,
 }
 
 impl PrometheusGauges {
     /// Makes new set of gauges.
-    pub fn new() -> Self {
+    pub fn new(vote_accounts_whitelist: Whitelist) -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
                 "solana_active_validators",
@@ -169,15 +170,12 @@ impl PrometheusGauges {
             average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time")
                 .unwrap(),
             client: reqwest::Client::new(),
+            vote_accounts_whitelist,
         }
     }
 
     /// Exports gauges for vote accounts
-    pub fn export_vote_accounts(
-        &self,
-        vote_accounts: &RpcVoteAccountStatus,
-        vote_whitelist: &Whitelist,
-    ) -> anyhow::Result<()> {
+    pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
             .map(|m| {
@@ -185,7 +183,7 @@ impl PrometheusGauges {
                     vote_accounts
                         .current
                         .iter()
-                        .filter(|rpc| vote_whitelist.contains(&rpc.vote_pubkey))
+                        .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
                         .count() as i64,
                 )
             })?;
@@ -197,7 +195,7 @@ impl PrometheusGauges {
                     vote_accounts
                         .delinquent
                         .iter()
-                        .filter(|rpc| vote_whitelist.contains(&rpc.vote_pubkey))
+                        .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
                         .count() as i64,
                 )
             })?;
@@ -205,7 +203,7 @@ impl PrometheusGauges {
         for v in vote_accounts
             .current
             .iter()
-            .filter(|rpc| vote_whitelist.contains(&rpc.vote_pubkey))
+            .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
         {
             self.is_delinquent
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
@@ -215,7 +213,7 @@ impl PrometheusGauges {
         for v in vote_accounts
             .delinquent
             .iter()
-            .filter(|rpc| vote_whitelist.contains(&rpc.vote_pubkey))
+            .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
         {
             self.is_delinquent
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
@@ -226,7 +224,7 @@ impl PrometheusGauges {
             .current
             .iter()
             .chain(vote_accounts.delinquent.iter())
-            .filter(|rpc| vote_whitelist.contains(&rpc.vote_pubkey))
+            .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
         {
             self.activated_stake
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
@@ -497,6 +495,6 @@ impl PrometheusGauges {
 
 impl Default for PrometheusGauges {
     fn default() -> Self {
-        Self::new()
+        Self::new(Whitelist::default())
     }
 }

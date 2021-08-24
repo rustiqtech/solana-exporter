@@ -142,12 +142,12 @@ and then put real values there.",
         persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
     );
 
-    let vote_whitelist = config.vote_account_whitelist.unwrap_or_default();
-    let gauges = PrometheusGauges::new();
+    let vote_accounts_whitelist = config.vote_account_whitelist.unwrap_or_default();
+    let staking_account_whitelist = config.staking_account_whitelist.unwrap_or_default();
 
+    let gauges = PrometheusGauges::new(vote_accounts_whitelist.clone());
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
-    let staking_account_whitelist = config.staking_account_whitelist.unwrap_or_default();
     let mut rewards_monitor = RewardsMonitor::new(
         &client,
         &gauges.current_staking_apy,
@@ -155,6 +155,7 @@ and then put real values there.",
         &gauges.validator_rewards,
         &rewards_cache,
         &staking_account_whitelist,
+        &vote_accounts_whitelist,
     );
 
     loop {
@@ -165,10 +166,10 @@ and then put real values there.",
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
         let vote_accounts = client.get_vote_accounts()?;
-        let node_whitelist = rpc_extra::node_pubkeys(&vote_whitelist, &vote_accounts);
+        let node_whitelist = rpc_extra::node_pubkeys(&vote_accounts_whitelist, &vote_accounts);
 
         gauges
-            .export_vote_accounts(&vote_accounts, &vote_whitelist)
+            .export_vote_accounts(&vote_accounts)
             .context("Failed to export vote account metrics")?;
         gauges
             .export_epoch_info(&epoch_info, &client)
@@ -191,7 +192,7 @@ and then put real values there.",
             .export_skipped_slots(&epoch_info, &node_whitelist)
             .context("Failed to export skipped slots")?;
         rewards_monitor
-            .export_rewards(&epoch_info, &vote_whitelist)
+            .export_rewards(&epoch_info)
             .context("Failed to export rewards")?;
     }
 }
