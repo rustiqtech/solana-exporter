@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: Some(MaxMindAPIKey::new("username", "password")),
                 vote_account_whitelist: Some(Whitelist::default()),
-                staking_account_whitelist: None,
+                staking_account_whitelist: Some(Whitelist::default()),
             };
 
             let location = sc
