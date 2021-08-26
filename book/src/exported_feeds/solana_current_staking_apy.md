@@ -1,12 +1,16 @@
 # `solana_current_staking_apy`
 
 ## Description
-Staking validator APY based on last epoch's performance (in percent).
+
+The APY of a given vote account pubkey based on last epoch's performance (in percent).
 
 ## Sample output
 
 ```
-TODO: Remove whitelist!
+solana_current_staking_apy{pubkey="5BAi9YGCipHq4ZcXuen5vagRQqRTVTRszXNqBZC6uBPZ"} 6.449820442689558
+solana_current_staking_apy{pubkey="8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp"} 6.434121594142694
+solana_current_staking_apy{pubkey="F5b1wSUtpaYDnpjLQonCZC7iyFvizLcNqTactZbwSEXK"} 7.195850076956045
+solana_current_staking_apy{pubkey="irKsY8c3sQur1XaYuQ811hzsEQJ5Hq3Yu3AAoXYnp8W"} 3.2552769395926884
 ```
 
 ## Remarks

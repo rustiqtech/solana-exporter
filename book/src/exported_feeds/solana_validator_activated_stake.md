@@ -1,7 +1,7 @@
 # `solana_validator_activated_stake`
 
 ## Description
-The activated stake of a validator (in lamports).
+The activated stake of a validator vote account pubkey, in lamports.
 
 ## Sample output
 ```

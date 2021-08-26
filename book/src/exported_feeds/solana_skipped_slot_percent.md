@@ -1,7 +1,7 @@
 # `solana_skipped_slot_percent`
 
 ## Description
-The percentage of skipped slots per validator.
+The percentage of skipped slots per validator node identity account pubkey.
 
 ## Sample output
 ```

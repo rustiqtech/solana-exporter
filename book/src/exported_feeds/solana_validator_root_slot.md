@@ -1,7 +1,7 @@
 # `solana_validator_root_slot`
 
 ## Description
-The root slot of a validator.
+The root slot of a validator vote account pubkey.
 
 ## Sample output
 

@@ -1,7 +1,7 @@
 # `solana_validator_last_vote`
 
 ## Description
-The last voted slot of a validator.
+The last voted slot of a validator vote account pubkey.
 
 ## Sample output
 

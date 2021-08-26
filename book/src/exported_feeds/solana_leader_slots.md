@@ -1,7 +1,7 @@
 # `solana_leader_slots`
 
 ## Description
-The number of validated and skipped leader slots per validator.
+The number of validated and skipped leader slots per validator node identity account pubkey.
 
 ## Sample output
 ```
