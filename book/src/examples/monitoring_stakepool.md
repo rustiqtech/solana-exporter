@@ -7,13 +7,23 @@ need to be monitored.
 ## Example `config.toml`
 
 ```toml
-rpc = 'https://api.testnet.solana.com'
+rpc = 'https://api.mainnet-beta.solana.com/'
 target = '0.0.0.0:9179'
-pubkey_whitelist = [
-    "8RsYRsi6f3hiK4EhyLS22Cy5KkrNbuidVYmsaYR1Xx78",
-    "9YVpEeZf8uBoUtzCFC6SSFDDqPt16uKFubNhLvGxeUDy",
-    "NNetet8BiymZxMBWLRPCcNGcBPZDBeEcpgtfTSwdFPX",
-    "8E9KWWqX1JMNu1YC3NptLA6M8cGqWRTccrF6T1FDnYRJ"
+vote_account_whitelist = [
+    "5BAi9YGCipHq4ZcXuen5vagRQqRTVTRszXNqBZC6uBPZ",
+    "F5b1wSUtpaYDnpjLQonCZC7iyFvizLcNqTactZbwSEXK",
+    "8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp",
+    "irKsY8c3sQur1XaYuQ811hzsEQJ5Hq3Yu3AAoXYnp8W"
+]
+staking_account_whitelist = [
+    "Ckk4SDm6z7vucvN7cSXBi26sohtrWaQj3zxSEBtiQXgJ",
+    "ACNaRHi3t6h3bbS2x5qt1AVkMaCws8qSRRzoMdSF481X",
+    "H8CHD1cqybdYQyhvpdxBFLnX9tyUzhPaouVACxANCwNF",
+    "AfXa9ndMAHHQ6jHC2rQ79FLKwq8VDYAgRAPhjKN6grn3",
+    "HXK8UkRvjHYv1RVgJJnWtmB9AhSeYRgckpjLcaR7y1Yb",
+    "HJTyg3FpikHurh5Hi5fdBYCKd1YrVQe2BY3AQCMycUmX",
+    "ANyjwHQXR6oiuPQCTXkq7ENFT1q8aMVBrXcPKTYXXmb2",
+    "6BaRjonCB91dFfhNRT4C1EndNydJdEfxheYPtApKyY9y"
 ]
 
 [maxmind]
