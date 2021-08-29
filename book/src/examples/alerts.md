@@ -40,5 +40,5 @@ threshold from `12h` to a more responsive value. Within a few minutes, an alert 
 [Discord](https://discord.com/) is a VoIP, instant messaging and digital distribution platform designed for creating
 communities. Grafana can send automated notifications to Discord to alert node operators of potential issues.
 
-1. [Add Discord as a notification channel in Grafana.](https://grafana.com/docs/grafana/latest/alerting/old-alerting/notifications/#discord)
+1. [Add Discord as a notification channel in Grafana.](https://grafana.com/docs/grafana/latest/alerting/unified-alerting/contact-points/#discord)
 2. Be sure to enable Discord notifications for the relevant alerts.
