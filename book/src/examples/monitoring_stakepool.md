@@ -43,4 +43,11 @@ times due to rate limiting.
 After `solana-exporter` has been appropriately configured, set up [Prometheus](../basics/prometheus.md) and
 [Grafana](../basics/grafana.md) with the sample dashboard supplied. You should see statistics on your stakepool.
 
-TODO: Images
+![Stake pool APY metrics](../images/stakepool_apy_and_cluster.png)
+*Stake pool APY metrics*
+
+![Stake pool decentralisation metrics](../images/stakepool_decentralisation.png)
+*Stake pool decentralisation metrics*
+
+![Stake pool metrics](../images/stakepool_metrics.png)
+*Stake pool metrics*
