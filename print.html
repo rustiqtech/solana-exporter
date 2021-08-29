@@ -1,0 +1,719 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Solana Exporter</title>
+                <meta name="robots" content="noindex" />
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="favicon.svg">
+                        <link rel="shortcut icon" href="favicon.png">
+                <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+                <link rel="stylesheet" href="css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="basics/basics.html"><strong aria-hidden="true">1.</strong> Basics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="basics/installation.html"><strong aria-hidden="true">1.1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="basics/configuration.html"><strong aria-hidden="true">1.2.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="basics/prometheus.html"><strong aria-hidden="true">1.3.</strong> Setting up Prometheus</a></li><li class="chapter-item expanded "><a href="basics/grafana.html"><strong aria-hidden="true">1.4.</strong> Setting up Grafana</a></li></ol></li><li class="chapter-item expanded "><a href="exported_feeds/exported_feeds.html"><strong aria-hidden="true">2.</strong> Exported Feeds</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="exported_feeds/solana_active_validators.html"><strong aria-hidden="true">2.1.</strong> solana_active_validators</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_validator_delinquent.html"><strong aria-hidden="true">2.2.</strong> solana_validator_delinquent</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_validator_activated_stake.html"><strong aria-hidden="true">2.3.</strong> solana_validator_activated_stake</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_validator_last_vote.html"><strong aria-hidden="true">2.4.</strong> solana_validator_last_vote</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_validator_root_slot.html"><strong aria-hidden="true">2.5.</strong> solana_validator_root_slot</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_transaction_count.html"><strong aria-hidden="true">2.6.</strong> solana_transaction_count</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_slot_height.html"><strong aria-hidden="true">2.7.</strong> solana_slot_height</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_current_epoch.html"><strong aria-hidden="true">2.8.</strong> solana_current_epoch</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_current_epoch_first_slot.html"><strong aria-hidden="true">2.9.</strong> solana_current_epoch_first_slot</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_current_epoch_last_slot.html"><strong aria-hidden="true">2.10.</strong> solana_current_epoch_last_slot</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_active_validators_isp_count.html"><strong aria-hidden="true">2.11.</strong> solana_active_validators_isp_count</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_active_validators_isp_stake.html"><strong aria-hidden="true">2.12.</strong> solana_active_validators_isp_stake</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_active_validators_dc_stake.html"><strong aria-hidden="true">2.13.</strong> solana_active_validators_dc_stake</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_leader_slots.html"><strong aria-hidden="true">2.14.</strong> solana_leader_slots</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_skipped_slot_percent.html"><strong aria-hidden="true">2.15.</strong> solana_skipped_slot_percent</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_current_staking_apy.html"><strong aria-hidden="true">2.16.</strong> solana_current_staking_apy</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_average_staking_apy.html"><strong aria-hidden="true">2.17.</strong> solana_average_staking_apy</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_validator_rewards.html"><strong aria-hidden="true">2.18.</strong> solana_validator_rewards</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_node_pubkey_balances.html"><strong aria-hidden="true">2.19.</strong> solana_node_pubkey_balances</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_node_versions.html"><strong aria-hidden="true">2.20.</strong> solana_node_versions</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_nodes.html"><strong aria-hidden="true">2.21.</strong> solana_nodes</a></li><li class="chapter-item expanded "><a href="exported_feeds/solana_average_slot_time.html"><strong aria-hidden="true">2.22.</strong> solana_average_slot_time</a></li></ol></li><li class="chapter-item expanded "><a href="examples/examples.html"><strong aria-hidden="true">3.</strong> Examples</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="examples/monitoring_stakepool.html"><strong aria-hidden="true">3.1.</strong> Monitoring a stake pool</a></li><li class="chapter-item expanded "><a href="examples/alerts.html"><strong aria-hidden="true">3.2.</strong> Using Grafana alerts</a></li></ol></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">Solana Exporter</h1>
+
+                    <div class="right-buttons">
+                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p><code>solana-exporter</code> (Solana Rust Exporter) is an advanced, modular monitoring solution for
+<a href="https://github.com/solana-labs/solana">Solana</a> validator nodes. The executable part is implemented
+in Rust and was initially based on the <a href="https://github.com/certusone/solana_exporter">Golang
+original</a> by CertusOne but now provides additional
+functionality. It comprises</p>
+<ul>
+<li>
+<p>a Prometheus exporter executable written in Rust,</p>
+</li>
+<li>
+<p>a Docker container suitable for <code>docker-compose</code>,</p>
+</li>
+<li>
+<p>sample Grafana dashboards.</p>
+</li>
+</ul>
+<p>Typical uses include</p>
+<ul>
+<li>
+<p>monitoring Solana validator nodes by the nodes' operator,</p>
+</li>
+<li>
+<p>managing a stake pool,</p>
+</li>
+<li>
+<p>monitoring the cluster health.</p>
+</li>
+</ul>
+<p>This guide explains how to set the monitoring stack up and how to stay on top of things using
+Grafana alerts.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="basics"><a class="header" href="#basics">Basics</a></h1>
+<p>This chapter covers the setup, configuration and installation of <code>solana-exporter</code>, as well as integration with
+other tools.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>To install the latest version of <code>solana-exporter</code>, run:</p>
+<pre><code>cargo install solana-exporter
+</code></pre>
+<p>Note that the libraries <code>libssl</code> and <code>libudev</code> should be installed on the target machine as well. Refer to your
+distro's package manager and documentation for guidance on how to install them.</p>
+<p>After installation, run</p>
+<pre><code>solana-exporter generate
+</code></pre>
+<p>to set up a default configuration file. By default, the <code>generate</code> command will place a config file inside
+<code>~/.solana-exporter</code>; this directory will be automatically created, unless the <code>-o</code> flag is present to override
+the output location.</p>
+<h2 id="running-as-a-service"><a class="header" href="#running-as-a-service">Running as a service</a></h2>
+<p>Run this as a systemd service by a non-root user with a script like this one:</p>
+<pre><code>[Unit]
+Description=Solana Exporter
+After=solana.service
+Requires=solana.service
+
+[Service]
+User=solana
+Restart=always
+RestartSec=20
+ExecStart=/home/solana/.cargo/bin/solana-exporter
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<h2 id="running-as-a-docker-container"><a class="header" href="#running-as-a-docker-container">Running as a Docker container</a></h2>
+<p><code>solana-exporter</code> is also available as a container which can be pulled by</p>
+<pre><code class="language-shell">docker pull rustiq/solana-exporter:0.4.0
+</code></pre>
+<p>Then run it with</p>
+<pre><code class="language-shell">docker run -d \
+-v /path/to/your/config.toml:/etc/solana-exporter/config.toml \
+-v solana-exporter-data:/exporter solana-exporter
+</code></pre>
+<p>We recommend that the <code>config.toml</code> file be bind-mounted to the container, so you have easy access to it on the host
+machine. However, the persistent database should be stored in a named volume.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>After running <code>solana-exporter generate</code>, a template config file will be created in either the specified location or the
+default directory (<code>~/.solana-exporter</code>). This page explains the individual variables and how they affect the exporter.</p>
+<h2 id="sample-configuration"><a class="header" href="#sample-configuration">Sample configuration</a></h2>
+<pre><code class="language-toml">rpc = 'http://localhost:8899'
+target = '0.0.0.0:9179'
+vote_account_whitelist = []
+staking_account_whitelist = []
+
+[maxmind]
+username = 'username'
+password = 'password'
+
+</code></pre>
+<ul>
+<li><code>rpc</code> - the location of the JSON-RPC node. This can be a local RPC node, or a public one.
+<ul>
+<li><em>Remark: Public nodes usually have a rate-limiting policy in place that makes usage with <code>solana-exporter</code>
+difficult (e.g., delayed response times).</em></li>
+</ul>
+</li>
+<li><code>target</code> - the target address/port to export Prometheus gauges to.</li>
+<li><code>vote_account_whitelist</code> - an array that instructs the exporter to only export statistics related to the specified
+vote pubkeys, and their corresponding node pubkeys if found.</li>
+<li><code>staking_account_whitelist</code> - an array that instructs the exporter to only export APY statistics related to the
+specified staking pubkeys.</li>
+<li><code>[maxmind]</code> - The exporter can optionally use
+MaxMind's <a href="https://www.maxmind.com/en/geoip2-precision-city-service">GeoIP2 Precision City Service</a> to export
+decentralisation-related metrics. However, this requires you to sign up for a MaxMind account and regularly top-up
+your account with credits.
+<ul>
+<li><code>username</code> - the username of the API key.</li>
+<li><code>password</code> - the password of the API key.</li>
+</ul>
+</li>
+</ul>
+<h2 id="important-note-on-vote_account_whitelist-and-staking_account_whitelist"><a class="header" href="#important-note-on-vote_account_whitelist-and-staking_account_whitelist">Important note on <code>vote_account_whitelist</code> and <code>staking_account_whitelist</code></a></h2>
+<p>As explained above, whitelists can be used to restrict the amount APY statistics exported. However, care should be taken
+if you modify the whitelists and then reload <code>solana-exporter</code>. In particular, for the following gauges:</p>
+<ul>
+<li><code>solana_current_staking_apy</code></li>
+<li><code>solana_average_staking_apy</code></li>
+</ul>
+<p>if any newly-appearing (e.g., formerly excluded) pubkeys were not fetched for a particular epoch, then <code>solana-exporter</code>
+will not attempt to &quot;back-fill&quot; data for either the current or past epochs. Therefore, those pubkeys will be <strong>missing</strong>
+from the gauges until the next epoch begins. This is due to the fact that the exporter only scrapes the ledger for
+rewards data once at the beginning of every epoch.</p>
+<p>To force a re-fresh of the current epoch's rewards, delete the database.</p>
+<h2 id="overriding-the-config-file-location"><a class="header" href="#overriding-the-config-file-location">Overriding the config file location</a></h2>
+<ul>
+<li>Standalone program: The default location is <code>~/.solana-exporter/config.toml</code>. Override this with the <code>-c</code> flag.</li>
+<li>Docker container: Change the bind-mount location.</li>
+</ul>
+<h2 id="overriding-the-database-location"><a class="header" href="#overriding-the-database-location">Overriding the database location</a></h2>
+<p>To speed up processing and reduce unnecessary network traffic, <code>solana-exporter</code> uses a persistent database to cache
+some requests.</p>
+<ul>
+<li>Standalone program: The default location is <code>~/.solana-exporter/persistent.db</code>. Override this with the <code>-d</code> flag.</li>
+<li>Docker container: The location cannot be overridden; the exporter expects a database to be mounted in <code>/exporter/</code>.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="setting-up-prometheus"><a class="header" href="#setting-up-prometheus">Setting up Prometheus</a></h1>
+<p><code>solana-exporter</code> uses Prometheus to export, monitor and aggregate data for use in other utilities. Refer to
+<a href="https://prometheus.io/">Prometheus</a>' documentation on how to get it running on your machine.</p>
+<p>If querying a public RPC port, <code>solana-exporter</code> can be run from anywhere, not necessarily from the
+validator machine.</p>
+<p>If querying a private RPC port, install Prometheus on the validator machine. Add
+the following snippet to the <code>scrape_configs</code> section of the <code>prometheus.yml</code> config file:</p>
+<pre><code class="language-yaml">  - job_name: solana
+    static_configs:
+      - targets: ['localhost:9179']
+</code></pre>
+<p>Restart Prometheus. Now the <code>solana-exporter</code> metrics should be available to view at
+<code>http://localhost:9179/metrics</code>. If running on the validator machine, it is highly advisable to only
+open the Prometheus datasource port to the Grafana machine. This can be achieved with <code>nft</code>. Here is
+an example <code>/etc/nftables.conf</code>:</p>
+<pre><code>#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority 0;
+        # allow connection to Prometheus datasource only locally and from Grafana
+        ip saddr { 127.0.0.1, &lt;Grafana IP&gt; } tcp dport 9090 accept
+        tcp dport 9090 drop
+        # allow connection to Prometheus exporter endpoints only internally
+        ip saddr != 127.0.0.1 tcp dport 9100 drop
+        ip saddr != 127.0.0.1 tcp dport 9179 drop
+    }
+    chain forward {
+        type filter hook forward priority 0;
+    }
+    chain output {
+        type filter hook output priority 0;
+    }
+}
+</code></pre>
+<p>Note the order of commands. An <code>accept</code> clause should appear before the corresponding <code>drop</code> clause.</p>
+<p>When <code>solana-exporter</code> is used on a mainnet validator node, Grafana must always run on a different
+machine to circumvent potential DDoS attacks on the validator. In the Grafana dashboard, add the
+Prometheus data source <code>http://&lt;Validator IP&gt;:9090</code>. Then import the <code>rustiq.json</code> using that data source.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="setting-up-grafana"><a class="header" href="#setting-up-grafana">Setting up Grafana</a></h1>
+<p>After <code>solana-exporter</code> exports gauges and metrics to Prometheus, it may be useful to visualise these metrics.
+<a href="https://grafana.com/">Grafana</a> allows you to create custom dashboards using Prometheus as a data source.</p>
+<p>The repository includes a basic dashboard (<code>rustiq.json</code>) that shows off a range of gauges that <code>solana-exporter</code>
+can export using graphs. Some included visualisations include the monitoring of basic cluster statistics such as
+transactions per second, skipped slots percentage. Decentralisation metrics such as the distribution of staked SOL
+across datacenters can also be tracked (MaxMind account required).</p>
+<p>To use the provided dashboard, first 
+<a href="https://grafana.com/docs/grafana/latest/datasources/add-a-data-source/">add the Prometheus data source</a>. Then,
+<a href="https://grafana.com/docs/grafana/latest/dashboards/export-import/">import the dashboard</a>.</p>
+<p><img src="basics/../images/grafana_dashboard.png" alt="Grafana Dashboard" /></p>
+<p>For an in-depth explanation of each exported gauge, see then next chapter.</p>
+<h2 id="sample-screenshots"><a class="header" href="#sample-screenshots">Sample screenshots</a></h2>
+<p><img src="basics/../images/grafana_activated_stake_by_dc.png" alt="Pie chart of activated stake by datacenter" />
+<em>Pie chart of activated stake by datacenter</em>
+(Gauge used: <a href="basics/../exported_feeds/solana_active_validators_dc_stake.html"><code>solana_active_validators_dc_stake</code></a>)</p>
+<p><img src="basics/../images/grafana_skipped_slot.png" alt="Heatmap of average skipped slot of validators" />
+<em>Heatmap of average skipped slot of validators</em>
+(Gauge used: <a href="basics/"><code>solana_skipped_slot_percent</code></a>)</p>
+<p><img src="basics/../images/grafana_average_staking_apy.png" alt="Heatmap of average staking APY over 5 epochs" />
+<em>Heatmap of average staking APY over 5 epochs</em>
+(Gauge used: <a href="basics/"><code>solana_average_staking_apy</code></a>)</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="exported-feeds"><a class="header" href="#exported-feeds">Exported feeds</a></h1>
+<p>This chapter explains in detail all the feeds that <code>solana-exporter</code> exports to Prometheus.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_active_validators"><a class="header" href="#solana_active_validators"><code>solana_active_validators</code></a></h1>
+<h2 id="description"><a class="header" href="#description">Description</a></h2>
+<p>Total number of validators in the cluster, grouped by the current status (either current or delinquent).</p>
+<h2 id="sample-output"><a class="header" href="#sample-output">Sample output</a></h2>
+<pre><code>solana_active_validators{status=&quot;current&quot;} 838
+solana_active_validators{status=&quot;delinquent&quot;} 61
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_validator_delinquent"><a class="header" href="#solana_validator_delinquent"><code>solana_validator_delinquent</code></a></h1>
+<h2 id="description-1"><a class="header" href="#description-1">Description</a></h2>
+<p>Whether a validator is delinquent. Given a vote <code>pubkey</code> label, the value (0 = false, 1 = true)
+shows whether the validator with that vote pubkey is delinquent.</p>
+<h2 id="sample-output-1"><a class="header" href="#sample-output-1">Sample output</a></h2>
+<pre><code>solana_validator_delinquent{pubkey=&quot;13DmkMhdpmJJu7nU2ozAyPiKuopZbYShMHV3JAA7YVYC&quot;} 1
+solana_validator_delinquent{pubkey=&quot;13HNYUVBVHgJSfNKvgXgKia3bywzXabGzQjFyMQxLMjS&quot;} 0
+solana_validator_delinquent{pubkey=&quot;13zyX9jfGy1RvM28LcdqfLwR4VSowXx6whAL6AcFERCk&quot;} 0
+solana_validator_delinquent{pubkey=&quot;14YCghb1uYPreALx6arirtPAnoGghoPH2Ac6gCmNQdq7&quot;} 0
+solana_validator_delinquent{pubkey=&quot;1gqv7KGm888nQXsJoNFwGaDkNERUBztuekjzK3J3T7a&quot;} 0
+solana_validator_delinquent{pubkey=&quot;21ryEourynXqhpLe1DsFz8yoeFKSXE14T8bKBFmzcYzt&quot;} 1
+</code></pre>
+<h2 id="example-usage"><a class="header" href="#example-usage">Example usage</a></h2>
+<p><code>count(solana_validator_delinquent == 0)</code> will return a time series of all active validators.</p>
+<p><code>count(solana_validator_delinquent == 1)</code> returns a time series of all delinquent validators.</p>
+<p>These two queries are equivalent to <a href="exported_feeds/solana_active_validators.html">solana_active_validators</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_validator_activated_stake"><a class="header" href="#solana_validator_activated_stake"><code>solana_validator_activated_stake</code></a></h1>
+<h2 id="description-2"><a class="header" href="#description-2">Description</a></h2>
+<p>The activated stake of a validator vote account pubkey, in lamports.</p>
+<h2 id="sample-output-2"><a class="header" href="#sample-output-2">Sample output</a></h2>
+<pre><code>solana_validator_activated_stake{pubkey=&quot;2BGBakG9kjmZAaygVmAuUrBSqBZt8p5FVabbStxHEXUj&quot;} 189767375985727
+solana_validator_activated_stake{pubkey=&quot;2BJUTarkNTNtiqn6g7mfZc5fjaF3sSnvV73dnuwuZnxV&quot;} 182505753341154
+solana_validator_activated_stake{pubkey=&quot;2DZVYFkMVumN7wuTSjDCAqWmpu9ydE7UoeYSJVWhNVEQ&quot;} 26246477171200
+solana_validator_activated_stake{pubkey=&quot;2Dwg3x37yN4q8SyrrwDaRPGQTp14atcwMPewe3Y8FDoL&quot;} 181695250479495
+solana_validator_activated_stake{pubkey=&quot;2EoaPgNSGbB3JyP7nSfiK5Wq3eME3LgbbEbdPim4CnVm&quot;} 0
+solana_validator_activated_stake{pubkey=&quot;2PC2DCk8C7n4jhXA427a1qL9CFRu7PtrzKHixU6LXocN&quot;} 184130856467877
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_validator_last_vote"><a class="header" href="#solana_validator_last_vote"><code>solana_validator_last_vote</code></a></h1>
+<h2 id="description-3"><a class="header" href="#description-3">Description</a></h2>
+<p>The last voted slot of a validator vote account pubkey.</p>
+<h2 id="sample-output-3"><a class="header" href="#sample-output-3">Sample output</a></h2>
+<pre><code>solana_validator_last_vote{pubkey=&quot;13DmkMhdpmJJu7nU2ozAyPiKuopZbYShMHV3JAA7YVYC&quot;} 91417048
+solana_validator_last_vote{pubkey=&quot;13HNYUVBVHgJSfNKvgXgKia3bywzXabGzQjFyMQxLMjS&quot;} 91431043
+solana_validator_last_vote{pubkey=&quot;13zyX9jfGy1RvM28LcdqfLwR4VSowXx6whAL6AcFERCk&quot;} 91430967
+solana_validator_last_vote{pubkey=&quot;14YCghb1uYPreALx6arirtPAnoGghoPH2Ac6gCmNQdq7&quot;} 91431043
+solana_validator_last_vote{pubkey=&quot;1gqv7KGm888nQXsJoNFwGaDkNERUBztuekjzK3J3T7a&quot;} 91431042
+solana_validator_last_vote{pubkey=&quot;21ryEourynXqhpLe1DsFz8yoeFKSXE14T8bKBFmzcYzt&quot;} 7393690
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_validator_root_slot"><a class="header" href="#solana_validator_root_slot"><code>solana_validator_root_slot</code></a></h1>
+<h2 id="description-4"><a class="header" href="#description-4">Description</a></h2>
+<p>The root slot of a validator vote account pubkey.</p>
+<h2 id="sample-output-4"><a class="header" href="#sample-output-4">Sample output</a></h2>
+<pre><code>solana_validator_root_slot{pubkey=&quot;2naPB8XC4FWp4er8M2nxDsphXHEyQH2CSQMFaSHxWWd8&quot;} 91448691
+solana_validator_root_slot{pubkey=&quot;2nj17ZX4Mwj9yFx7ATBzhN7RzVQfWiSjCdMeeH6NBXe8&quot;} 91448692
+solana_validator_root_slot{pubkey=&quot;2oxQJ1qpgUZU9JU84BHaoM1GzHkYfRDgDQY9dpH5mgGn&quot;} 91448692
+solana_validator_root_slot{pubkey=&quot;2rNaaG1yKrGY5KU2H8gGWtQzMitoWHcdVroMpVDg5AYy&quot;} 91448692
+solana_validator_root_slot{pubkey=&quot;2vxNDV7aAbrb4Whnxs9LiuxCsm9oubX3c1hozXPsoD97&quot;} 91448690
+solana_validator_root_slot{pubkey=&quot;2xT5m25m9mDkdpLV1mT5fWkvH15jGy1dm7anNQLzzYGA&quot;} 91448689
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_transaction_count"><a class="header" href="#solana_transaction_count"><code>solana_transaction_count</code></a></h1>
+<h2 id="description-5"><a class="header" href="#description-5">Description</a></h2>
+<p>Total number of confirmed transactions since genesis.</p>
+<h2 id="sample-output-5"><a class="header" href="#sample-output-5">Sample output</a></h2>
+<pre><code>solana_transaction_count 23854763230
+</code></pre>
+<h2 id="example-usage-1"><a class="header" href="#example-usage-1">Example usage</a></h2>
+<pre><code>rate(solana_transaction_count[5m])
+</code></pre>
+<p>returns a time series of the average transactions per second (TPS) in the cluster, calculated by a rolling average over
+5 minutes.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_slot_height"><a class="header" href="#solana_slot_height"><code>solana_slot_height</code></a></h1>
+<h2 id="description-6"><a class="header" href="#description-6">Description</a></h2>
+<p>The last confirmed slot height.</p>
+<h2 id="sample-output-6"><a class="header" href="#sample-output-6">Sample output</a></h2>
+<pre><code>solana_slot_height 91448726
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_current_epoch"><a class="header" href="#solana_current_epoch"><code>solana_current_epoch</code></a></h1>
+<h2 id="description-7"><a class="header" href="#description-7">Description</a></h2>
+<p>The current epoch of the cluster.</p>
+<h2 id="sample-output-7"><a class="header" href="#sample-output-7">Sample output</a></h2>
+<pre><code>solana_current_epoch 211
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_current_epoch_first_slot"><a class="header" href="#solana_current_epoch_first_slot"><code>solana_current_epoch_first_slot</code></a></h1>
+<h2 id="description-8"><a class="header" href="#description-8">Description</a></h2>
+<p>The first slot of the current epoch.</p>
+<h2 id="sample-output-8"><a class="header" href="#sample-output-8">Sample output</a></h2>
+<pre><code>solana_current_epoch_first_slot 91152000
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_current_epoch_last_slot"><a class="header" href="#solana_current_epoch_last_slot"><code>solana_current_epoch_last_slot</code></a></h1>
+<h2 id="description-9"><a class="header" href="#description-9">Description</a></h2>
+<p>The last slot of the current epoch.</p>
+<h2 id="sample-output-9"><a class="header" href="#sample-output-9">Sample output</a></h2>
+<pre><code>solana_current_epoch_last_slot 91584000
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_active_validators_isp_count"><a class="header" href="#solana_active_validators_isp_count"><code>solana_active_validators_isp_count</code></a></h1>
+<h2 id="description-10"><a class="header" href="#description-10">Description</a></h2>
+<p>The count of activate validators, grouped by their ISP. Given the <code>isp_name</code> label is the name of the ISP returned by MaxMind, the value is the
+number of validators with a node IP address belonging to that ISP.</p>
+<h2 id="sample-output-10"><a class="header" href="#sample-output-10">Sample output</a></h2>
+<pre><code>solana_active_validators_isp_count{isp_name=&quot;7heaven LLC&quot;} 1
+solana_active_validators_isp_count{isp_name=&quot;Adman LLC&quot;} 1
+solana_active_validators_isp_count{isp_name=&quot;Advanced Solutions LLC&quot;} 1
+solana_active_validators_isp_count{isp_name=&quot;Alibaba&quot;} 1
+solana_active_validators_isp_count{isp_name=&quot;Amazon&quot;} 1
+solana_active_validators_isp_count{isp_name=&quot;Amazon.com&quot;} 61
+solana_active_validators_isp_count{isp_name=&quot;Beeline&quot;} 1
+</code></pre>
+<h2 id="remarks"><a class="header" href="#remarks">Remarks</a></h2>
+<p>This gauge will not be exported if no MaxMind API key is present in <code>config.toml</code>.</p>
+<h2 id="caching"><a class="header" href="#caching">Caching</a></h2>
+<p>The output of this gauge relies on cached data; the exporter retains the geolocation information of an IP address
+for one week before considering it stale and re-acquiring it from MaxMind.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_active_validators_isp_stake"><a class="header" href="#solana_active_validators_isp_stake"><code>solana_active_validators_isp_stake</code></a></h1>
+<h2 id="description-11"><a class="header" href="#description-11">Description</a></h2>
+<p>The sum of stakes held by active validators, grouped by their ISP. Given <code>isp_name</code> is the name of the ISP returned by
+MaxMind, the value is the sum of stake (in lamports) in active validators who have a node IP address belonging that ISP.</p>
+<h2 id="sample-output-11"><a class="header" href="#sample-output-11">Sample output</a></h2>
+<pre><code>solana_active_validators_isp_stake{isp_name=&quot;7heaven LLC&quot;} 188227282425345
+solana_active_validators_isp_stake{isp_name=&quot;Adman LLC&quot;} 6189723438718
+solana_active_validators_isp_stake{isp_name=&quot;Advanced Solutions LLC&quot;} 118047122517759
+solana_active_validators_isp_stake{isp_name=&quot;Alibaba&quot;} 164798876213690
+solana_active_validators_isp_stake{isp_name=&quot;Amazon&quot;} 6114765640910
+solana_active_validators_isp_stake{isp_name=&quot;Amazon.com&quot;} 135796402624727330
+solana_active_validators_isp_stake{isp_name=&quot;Beeline&quot;} 180442822928047
+</code></pre>
+<h2 id="remarks-1"><a class="header" href="#remarks-1">Remarks</a></h2>
+<p>This gauge will not be exported if no MaxMind API key is present in <code>config.toml</code>.</p>
+<h2 id="caching-1"><a class="header" href="#caching-1">Caching</a></h2>
+<p>The output of this gauge relies on cached data; the exporter retains the geolocation information of an IP address
+for one week before considering it stale and re-acquiring it from MaxMind.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_active_validators_dc_stake"><a class="header" href="#solana_active_validators_dc_stake"><code>solana_active_validators_dc_stake</code></a></h1>
+<h2 id="description-12"><a class="header" href="#description-12">Description</a></h2>
+<p>The sum of stakes held by active validators, grouped by their datacenter location. Given <code>dc_identifier</code> is a
+semi-unique identifier assigned to each datacenter (see below), the value is the sum of stake (in lamports)
+in active validators who have a node IP address inside said datacenter.</p>
+<h2 id="sample-output-12"><a class="header" href="#sample-output-12">Sample output</a></h2>
+<pre><code>solana_active_validators_dc_stake{dc_identifier=&quot;11524-US-Portland&quot;} 945063491010
+solana_active_validators_dc_stake{dc_identifier=&quot;12212-CA-Toronto&quot;} 393894227085511
+solana_active_validators_dc_stake{dc_identifier=&quot;132203-US-Santa Clara&quot;} 138086443681311
+solana_active_validators_dc_stake{dc_identifier=&quot;13830-US-Dallas&quot;} 386674347619072
+solana_active_validators_dc_stake{dc_identifier=&quot;138982-CN&quot;} 3058846690875748
+solana_active_validators_dc_stake{dc_identifier=&quot;14618-US&quot;} 6114765640910
+solana_active_validators_dc_stake{dc_identifier=&quot;14618-US-Ashburn&quot;} 210033359690576
+solana_active_validators_dc_stake{dc_identifier=&quot;15169-BE-Brussels&quot;} 737964600374534
+</code></pre>
+<h2 id="remarks-2"><a class="header" href="#remarks-2">Remarks</a></h2>
+<p>This gauge will not be exported if no MaxMind API key is present in <code>config.toml</code>.</p>
+<p>The identifier is of the format:</p>
+<pre><code>{AS number}-{ISO-3166-1 Alpha-2 code}-{City name}
+</code></pre>
+<p>if a city name is available, otherwise:</p>
+<pre><code>{AS number}-{ISO-3166-1 Alpha-2 code}
+</code></pre>
+<h2 id="caching-2"><a class="header" href="#caching-2">Caching</a></h2>
+<p>The output of this gauge relies on cached data; the exporter retains the geolocation information of an IP address
+for one week before considering it stale and re-acquiring it from MaxMind.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_leader_slots"><a class="header" href="#solana_leader_slots"><code>solana_leader_slots</code></a></h1>
+<h2 id="description-13"><a class="header" href="#description-13">Description</a></h2>
+<p>The number of validated and skipped leader slots per validator node identity account pubkey.</p>
+<h2 id="sample-output-13"><a class="header" href="#sample-output-13">Sample output</a></h2>
+<pre><code>solana_leader_slots{pubkey=&quot;8E9KWWqX1JMNu1YC3NptLA6M8cGqWRTccrF6T1FDnYRJ&quot;,status=&quot;skipped&quot;} 192
+solana_leader_slots{pubkey=&quot;8E9KWWqX1JMNu1YC3NptLA6M8cGqWRTccrF6T1FDnYRJ&quot;,status=&quot;validated&quot;} 84
+solana_leader_slots{pubkey=&quot;8RsYRsi6f3hiK4EhyLS22Cy5KkrNbuidVYmsaYR1Xx78&quot;,status=&quot;skipped&quot;} 2342
+solana_leader_slots{pubkey=&quot;8RsYRsi6f3hiK4EhyLS22Cy5KkrNbuidVYmsaYR1Xx78&quot;,status=&quot;validated&quot;} 1194
+solana_leader_slots{pubkey=&quot;9YVpEeZf8uBoUtzCFC6SSFDDqPt16uKFubNhLvGxeUDy&quot;,status=&quot;skipped&quot;} 118
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_skipped_slot_percent"><a class="header" href="#solana_skipped_slot_percent"><code>solana_skipped_slot_percent</code></a></h1>
+<h2 id="description-14"><a class="header" href="#description-14">Description</a></h2>
+<p>The percentage of skipped slots per validator node identity account pubkey.</p>
+<h2 id="sample-output-14"><a class="header" href="#sample-output-14">Sample output</a></h2>
+<pre><code>solana_skipped_slot_percent{pubkey=&quot;8E9KWWqX1JMNu1YC3NptLA6M8cGqWRTccrF6T1FDnYRJ&quot;} 69.56521739130434
+solana_skipped_slot_percent{pubkey=&quot;8RsYRsi6f3hiK4EhyLS22Cy5KkrNbuidVYmsaYR1Xx78&quot;} 66.23303167420815
+solana_skipped_slot_percent{pubkey=&quot;9YVpEeZf8uBoUtzCFC6SSFDDqPt16uKFubNhLvGxeUDy&quot;} 46.09375
+solana_skipped_slot_percent{pubkey=&quot;NNetet8BiymZxMBWLRPCcNGcBPZDBeEcpgtfTSwdFPX&quot;} 31.779661016949152
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_current_staking_apy"><a class="header" href="#solana_current_staking_apy"><code>solana_current_staking_apy</code></a></h1>
+<h2 id="description-15"><a class="header" href="#description-15">Description</a></h2>
+<p>The APY of a given vote account pubkey based on last epoch's performance (in percent).</p>
+<h2 id="sample-output-15"><a class="header" href="#sample-output-15">Sample output</a></h2>
+<pre><code>solana_current_staking_apy{pubkey=&quot;5BAi9YGCipHq4ZcXuen5vagRQqRTVTRszXNqBZC6uBPZ&quot;} 6.449820442689558
+solana_current_staking_apy{pubkey=&quot;8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp&quot;} 6.434121594142694
+solana_current_staking_apy{pubkey=&quot;F5b1wSUtpaYDnpjLQonCZC7iyFvizLcNqTactZbwSEXK&quot;} 7.195850076956045
+solana_current_staking_apy{pubkey=&quot;irKsY8c3sQur1XaYuQ811hzsEQJ5Hq3Yu3AAoXYnp8W&quot;} 3.2552769395926884
+</code></pre>
+<h2 id="remarks-3"><a class="header" href="#remarks-3">Remarks</a></h2>
+<p>Be sure to understand this gauge's behaviour
+when <a href="exported_feeds/../basics/configuration.html#important-note-on-pubkey_whitelist"><code>pubkey_whitelist</code> is modified</a>.</p>
+<h2 id="caching-3"><a class="header" href="#caching-3">Caching</a></h2>
+<p>At the beginning of each epoch, the exporter fetches all reward transactions from the starting slots of the epoch. The
+staking rewards, and the duration of the <em>previous</em> epoch, are used to calculate the APY of the current epoch. This is
+only ever done once per epoch.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_average_staking_apy"><a class="header" href="#solana_average_staking_apy"><code>solana_average_staking_apy</code></a></h1>
+<h2 id="description-16"><a class="header" href="#description-16">Description</a></h2>
+<p>The APY of a given vote account pubkey averaged over a few past epochs (in percent).</p>
+<h2 id="sample-output-16"><a class="header" href="#sample-output-16">Sample output</a></h2>
+<pre><code>solana_average_staking_apy{pubkey=&quot;5BAi9YGCipHq4ZcXuen5vagRQqRTVTRszXNqBZC6uBPZ&quot;} 2.544996416812742
+solana_average_staking_apy{pubkey=&quot;8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp&quot;} 2.5342297952374553
+solana_average_staking_apy{pubkey=&quot;F5b1wSUtpaYDnpjLQonCZC7iyFvizLcNqTactZbwSEXK&quot;} 2.8351747690563456
+solana_average_staking_apy{pubkey=&quot;irKsY8c3sQur1XaYuQ811hzsEQJ5Hq3Yu3AAoXYnp8W&quot;} 1.7458550503327919
+</code></pre>
+<h2 id="remarks-4"><a class="header" href="#remarks-4">Remarks</a></h2>
+<p>Be sure to understand this gauge's behaviour
+when <a href="exported_feeds/../basics/configuration.html#important-note-on-vote_account_whitelist-and-staking_account_whitelist"><code>vote_account_whitelist</code> is modified</a>.</p>
+<h2 id="caching-4"><a class="header" href="#caching-4">Caching</a></h2>
+<p>At the beginning of each epoch, the exporter fetches all reward transactions from the starting slots of the epoch. The
+staking rewards, and the duration of the <em>previous</em> epoch, are used to calculate the APY of the current epoch. This is
+only ever done once per epoch.</p>
+<p>To calculate the average staking APY, the exporter fetches the stored staking APY of the past few epochs and uses them.
+If a validator pubkey does not appear for a particular past epoch, then that epoch is excluded from calculation -
+instead of being treated as 0%.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_validator_rewards"><a class="header" href="#solana_validator_rewards"><code>solana_validator_rewards</code></a></h1>
+<h2 id="description-17"><a class="header" href="#description-17">Description</a></h2>
+<p>Cumulative validator rewards of a given vote account pubkey in lamports.</p>
+<h2 id="sample-output-17"><a class="header" href="#sample-output-17">Sample output</a></h2>
+<pre><code>solana_validator_rewards{pubkey=&quot;5BAi9YGCipHq4ZcXuen5vagRQqRTVTRszXNqBZC6uBPZ&quot;} 1058306737820
+solana_validator_rewards{pubkey=&quot;8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp&quot;} 68242612701
+solana_validator_rewards{pubkey=&quot;irKsY8c3sQur1XaYuQ811hzsEQJ5Hq3Yu3AAoXYnp8W&quot;} 24030806166
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_node_pubkey_balances"><a class="header" href="#solana_node_pubkey_balances"><code>solana_node_pubkey_balances</code></a></h1>
+<h2 id="description-18"><a class="header" href="#description-18">Description</a></h2>
+<p>Balances of node identity accounts in lamports. Those balances are used to fund vote transactions
+produced by the voting nodes. Since a zero balance would lead to the node identity account being
+garbage-collected, one can set a reminder alarm to refill that account.</p>
+<h2 id="sample-output-18"><a class="header" href="#sample-output-18">Sample output</a></h2>
+<pre><code>solana_node_pubkey_balances{pubkey=&quot;4YGgmwyqztpJeAi3pzHQ4Gf9cWrMHCjZaWeWoCK6zz6X&quot;} 6792793021
+solana_node_pubkey_balances{pubkey=&quot;FoigPJ6kL6Gth5Er6t9d1Nkh96Skadqw63Ciyjxc1f8H&quot;} 33408113791
+solana_node_pubkey_balances{pubkey=&quot;G2TBEh2ahNGS9tGnuBNyDduNjyfUtGhMcssgRb8b6KfH&quot;} 170569140828
+solana_node_pubkey_balances{pubkey=&quot;zeroT6PTAEjipvZuACTh1mbGCqTHgA6i1ped9DcuidX&quot;} 224893658626
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_node_versions"><a class="header" href="#solana_node_versions"><code>solana_node_versions</code></a></h1>
+<h2 id="desctiption"><a class="header" href="#desctiption">Desctiption</a></h2>
+<p>The count of node versions.</p>
+<h2 id="sample-output-19"><a class="header" href="#sample-output-19">Sample output</a></h2>
+<pre><code>solana_node_versions{version=&quot;1.6.21&quot;} 2
+solana_node_versions{version=&quot;1.7.10&quot;} 2
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_nodes"><a class="header" href="#solana_nodes"><code>solana_nodes</code></a></h1>
+<h2 id="description-19"><a class="header" href="#description-19">Description</a></h2>
+<p>The number of nodes.</p>
+<h2 id="sample-output-20"><a class="header" href="#sample-output-20">Sample output</a></h2>
+<pre><code>solana_nodes 4
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solana_average_slot_time"><a class="header" href="#solana_average_slot_time"><code>solana_average_slot_time</code></a></h1>
+<h2 id="description-20"><a class="header" href="#description-20">Description</a></h2>
+<p>The average slot time in the current epoch, in seconds.</p>
+<h2 id="sample-output-21"><a class="header" href="#sample-output-21">Sample output</a></h2>
+<pre><code>solana_average_slot_time 0.5642300440729666
+</code></pre>
+<h2 id="remarks-5"><a class="header" href="#remarks-5">Remarks</a></h2>
+<p>The exporter calculates this metric using the slot index of the current epoch and their respective timestamps.
+Therefore, when using whitelists, this gauge will not reflect the performance of the whitelisted vote pubkeys.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="examples"><a class="header" href="#examples">Examples</a></h1>
+<p>This chapter contains example usages of <code>solana-exporter</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="monitoring-a-stakepool"><a class="header" href="#monitoring-a-stakepool">Monitoring a stakepool</a></h1>
+<p>Although <code>solana-exporter</code> can export statistics about an entire cluster, many of its gauges can be limited to a
+particular subset of pubkeys. This can be useful for when the specified RPC node has rate-limits, and only a few pubkeys
+need to be monitored.</p>
+<h2 id="example-configtoml"><a class="header" href="#example-configtoml">Example <code>config.toml</code></a></h2>
+<pre><code class="language-toml">rpc = 'https://api.mainnet-beta.solana.com/'
+target = '0.0.0.0:9179'
+vote_account_whitelist = [
+    &quot;5BAi9YGCipHq4ZcXuen5vagRQqRTVTRszXNqBZC6uBPZ&quot;,
+    &quot;F5b1wSUtpaYDnpjLQonCZC7iyFvizLcNqTactZbwSEXK&quot;,
+    &quot;8jxSHbS4qAnh5yueFp4D9ABXubKqMwXqF3HtdzQGuphp&quot;,
+    &quot;irKsY8c3sQur1XaYuQ811hzsEQJ5Hq3Yu3AAoXYnp8W&quot;
+]
+staking_account_whitelist = [
+    &quot;Ckk4SDm6z7vucvN7cSXBi26sohtrWaQj3zxSEBtiQXgJ&quot;,
+    &quot;ACNaRHi3t6h3bbS2x5qt1AVkMaCws8qSRRzoMdSF481X&quot;,
+    &quot;H8CHD1cqybdYQyhvpdxBFLnX9tyUzhPaouVACxANCwNF&quot;,
+    &quot;AfXa9ndMAHHQ6jHC2rQ79FLKwq8VDYAgRAPhjKN6grn3&quot;,
+    &quot;HXK8UkRvjHYv1RVgJJnWtmB9AhSeYRgckpjLcaR7y1Yb&quot;,
+    &quot;HJTyg3FpikHurh5Hi5fdBYCKd1YrVQe2BY3AQCMycUmX&quot;,
+    &quot;ANyjwHQXR6oiuPQCTXkq7ENFT1q8aMVBrXcPKTYXXmb2&quot;,
+    &quot;6BaRjonCB91dFfhNRT4C1EndNydJdEfxheYPtApKyY9y&quot;
+]
+
+[maxmind]
+username = 'username'
+password = 'password'
+</code></pre>
+<p>This is a sample configuration file that instructs <code>solana-exporter</code> to only export statistics related to the specified
+pubkeys, using a public RPC node. By not fetching information about all validators, it is possible to avoid slow scrape
+times due to rate limiting.</p>
+<p><a href="examples/../basics/configuration.html#important-note-on-pubkey_whitelist">Be sure to understand the behaviour of APY gauges when modifying <code>pubkey_whitelist</code></a>
+.</p>
+<h2 id="monitoring-using-grafana"><a class="header" href="#monitoring-using-grafana">Monitoring using Grafana</a></h2>
+<p>After <code>solana-exporter</code> has been appropriately configured, set up <a href="examples/../basics/prometheus.html">Prometheus</a> and
+<a href="examples/../basics/grafana.html">Grafana</a> with the sample dashboard supplied. You should see statistics on your stakepool.</p>
+<p><img src="examples/../images/stakepool_apy_and_cluster.png" alt="Stake pool APY metrics" />
+<em>Stake pool APY metrics</em></p>
+<p><img src="examples/../images/stakepool_decentralisation.png" alt="Stake pool decentralisation metrics" />
+<em>Stake pool decentralisation metrics</em></p>
+<p><img src="examples/../images/stakepool_metrics.png" alt="Stake pool metrics" />
+<em>Stake pool metrics</em></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="using-grafana-alerts"><a class="header" href="#using-grafana-alerts">Using Grafana alerts</a></h1>
+<p>After setting up <code>solana-exporter</code> to monitor a stakepool, it may be useful to set up Grafana alerts to notify relevant
+operators of critical changes, and even automatically act to fix potential issues.</p>
+<p>This example uses the new <a href="https://grafana.com/docs/grafana/latest/alerting/unified-alerting/">Grafana 8 Alerts</a>.</p>
+<h2 id="creating-an-alert"><a class="header" href="#creating-an-alert">Creating an alert</a></h2>
+<p>For extra documentation on how to create and manage Grafana alerts, refer to
+the <a href="https://grafana.com/docs/grafana/latest/alerting/unified-alerting/alerting-rules/">official documentation</a>.</p>
+<h3 id="node-delinquency"><a class="header" href="#node-delinquency">Node delinquency</a></h3>
+<p>In this example, we will make an alert that fires if a voting pubkey becomes delinquent for over 12 consecutive hours.</p>
+<ol>
+<li>
+<p><a href="https://grafana.com/docs/grafana/latest/alerting/unified-alerting/alerting-rules/create-grafana-managed-rule/">Create a Grafana managed alerting rule.</a>
+Give it an appropriate name and place it in a folder.</p>
+<p><img src="examples/../images/alerts_alerttype.png" alt="Alert type" /></p>
+</li>
+<li>
+<p>Set up the query to be alerted on. You need three queries:</p>
+<ul>
+<li>Prometheus <strong>(A)</strong> - <code>solana_validator_delinquent{} == 1</code>. This filters for all delinquent (1) nodes. Select an
+appropriate time-range. For example, a &quot;now-15m to now&quot; time range means that, when evaluating, the alert system
+treats any duration of delinquency during the last 15 minutes as delinquency.</li>
+<li>Expression <strong>(B)</strong> - Reduce <strong>(A)</strong> by using the Count function. This counts how many delinquent nodes there are.</li>
+<li>Expression <strong>(C)</strong> - Use the Math expression <code>$B &gt; 0</code>. This expression will be used to fire an alert.</li>
+</ul>
+<p><img src="examples/../images/alerts_alertedon.png" alt="Queries to be alerted on" /></p>
+</li>
+<li>
+<p>Define the alert condition to use <strong>(C)</strong> and evaluate every <code>1m</code> for <code>12h</code>. This instructs Grafana to check for
+delinquency every minute, and firing an alert if a node is delinquent for more than 12 hours. Set the &quot;Alert state if
+no data or all values are null&quot; to be &quot;OK&quot;, as the Prometheus query returns nothing if all nodes are active. Finally,
+choose if you wish timeouts or query errors to fire an alert.</p>
+</li>
+</ol>
+<p>To test this alert, invert the query <strong>(A)</strong> with <code>solana_validator_delinquent{} == 0</code> and temporarily reduce the firing
+threshold from <code>12h</code> to a more responsive value. Within a few minutes, an alert should be fired.</p>
+<h2 id="receiving-alert-notifications"><a class="header" href="#receiving-alert-notifications">Receiving alert notifications</a></h2>
+<p>See <a href="https://grafana.com/docs/grafana/latest/alerting/unified-alerting/contact-points/">Grafana contact
+points</a> on the multitude of ways of
+receiving Grafana alerts.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+                        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+                
+    </body>
+</html>

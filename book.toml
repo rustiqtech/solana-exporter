@@ -1,6 +1,0 @@
-[book]
-authors = ["Anson"]
-language = "en"
-multilingual = false
-src = "src"
-title = "Solana Exporter"
