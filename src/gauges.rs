@@ -1,20 +1,23 @@
 use crate::config::Whitelist;
 use crate::geolocation::api::MaxMindAPIKey;
 use crate::geolocation::api::MAXMIND_CITY_URI;
-use crate::geolocation::caching::GeoCache;
+use crate::geolocation::caching::GeolocationCache;
 use crate::geolocation::get_rpc_contact_ip;
 use crate::geolocation::identifier::DatacenterIdentifier;
-use anyhow::anyhow;
-use anyhow::Context;
+use crate::rpc_extra::with_first_block;
+use anyhow::{anyhow, Context};
 use futures::TryFutureExt;
 use geoip2_city::CityApiResponse;
 use log::{debug, error};
 use prometheus_exporter::prometheus::{
-    register_gauge_vec, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
-    GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
+    register_gauge, register_gauge_vec, register_int_counter_vec, register_int_gauge,
+    register_int_gauge_vec, Gauge, GaugeVec, IntCounterVec, IntGauge, IntGaugeVec,
 };
+use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::RpcBlockConfig;
 use solana_client::rpc_response::{RpcContactInfo, RpcVoteAccountInfo, RpcVoteAccountStatus};
 use solana_sdk::epoch_info::EpochInfo;
+use solana_transaction_status::{TransactionDetails, UiTransactionEncoding};
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
 
@@ -39,13 +42,21 @@ pub struct PrometheusGauges {
     pub dc_by_stake: IntGaugeVec,
     pub leader_slots: IntCounterVec,
     pub skipped_slot_percent: GaugeVec,
+    pub current_staking_apy: GaugeVec,
+    pub average_staking_apy: GaugeVec,
+    pub validator_rewards: IntGaugeVec,
+    pub node_pubkey_balances: IntGaugeVec,
+    pub node_versions: IntGaugeVec,
+    pub nodes: IntGauge,
+    pub average_slot_time: Gauge,
     // Connection pool for querying
     client: reqwest::Client,
+    vote_accounts_whitelist: Whitelist,
 }
 
 impl PrometheusGauges {
     /// Makes new set of gauges.
-    pub fn new() -> Self {
+    pub fn new(vote_accounts_whitelist: Whitelist) -> Self {
         Self {
             active_validators: register_int_gauge_vec!(
                 "solana_active_validators",
@@ -125,7 +136,41 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
+            current_staking_apy: register_gauge_vec!(
+                "solana_current_staking_apy",
+                "Staking validator APY based on last epoch's performance, in percent",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            average_staking_apy: register_gauge_vec!(
+                "solana_average_staking_apy",
+                "Staking validator APY averaged over a few past epochs, in percent",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            validator_rewards: register_int_gauge_vec!(
+                "solana_validator_rewards",
+                "Cumulative validator rewards in lamports",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            node_pubkey_balances: register_int_gauge_vec!(
+                "solana_node_pubkey_balances",
+                "Balance of node pubkeys",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
+            node_versions: register_int_gauge_vec!(
+                "solana_node_versions",
+                "Count of node versions",
+                &["version"]
+            )
+            .unwrap(),
+            nodes: register_int_gauge!("solana_nodes", "Number of nodes").unwrap(),
+            average_slot_time: register_gauge!("solana_average_slot_time", "Average slot time")
+                .unwrap(),
             client: reqwest::Client::new(),
+            vote_accounts_whitelist,
         }
     }
 
@@ -133,26 +178,53 @@ impl PrometheusGauges {
     pub fn export_vote_accounts(&self, vote_accounts: &RpcVoteAccountStatus) -> anyhow::Result<()> {
         self.active_validators
             .get_metric_with_label_values(&["current"])
-            .map(|m| m.set(vote_accounts.current.len() as i64))?;
+            .map(|m| {
+                m.set(
+                    vote_accounts
+                        .current
+                        .iter()
+                        .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
+                        .count() as i64,
+                )
+            })?;
 
         self.active_validators
             .get_metric_with_label_values(&["delinquent"])
-            .map(|m| m.set(vote_accounts.delinquent.len() as i64))?;
+            .map(|m| {
+                m.set(
+                    vote_accounts
+                        .delinquent
+                        .iter()
+                        .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
+                        .count() as i64,
+                )
+            })?;
 
-        for v in &vote_accounts.current {
+        for v in vote_accounts
+            .current
+            .iter()
+            .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
+        {
             self.is_delinquent
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
                 .map(|m| m.set(0.))?;
         }
-        for v in &vote_accounts.delinquent {
+
+        for v in vote_accounts
+            .delinquent
+            .iter()
+            .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
+        {
             self.is_delinquent
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
                 .map(|m| m.set(1.))?;
         }
+
         for v in vote_accounts
             .current
             .iter()
             .chain(vote_accounts.delinquent.iter())
+            .filter(|rpc| self.vote_accounts_whitelist.contains(&rpc.vote_pubkey))
         {
             self.activated_stake
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
@@ -169,16 +241,90 @@ impl PrometheusGauges {
     }
 
     /// Exports gauges for epoch
-    pub fn export_epoch_info(&self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
-        let first_slot = epoch_info.absolute_slot as i64;
-        let last_slot = first_slot + epoch_info.slots_in_epoch as i64;
+    pub fn export_epoch_info(
+        &self,
+        epoch_info: &EpochInfo,
+        client: &RpcClient,
+    ) -> anyhow::Result<()> {
+        let first_slot = epoch_info.absolute_slot - epoch_info.slot_index;
+        let last_slot = first_slot + epoch_info.slots_in_epoch;
 
         self.transaction_count
             .set(epoch_info.transaction_count.unwrap_or_default() as i64);
         self.slot_height.set(epoch_info.absolute_slot as i64);
         self.current_epoch.set(epoch_info.epoch as i64);
-        self.current_epoch_first_slot.set(first_slot);
-        self.current_epoch_last_slot.set(last_slot);
+        self.current_epoch_first_slot.set(first_slot as i64);
+        self.current_epoch_last_slot.set(last_slot as i64);
+
+        with_first_block(client, epoch_info.epoch, |block| {
+            let average_slot_time = (OffsetDateTime::now_utc().unix_timestamp()
+                - client
+                    .get_block_with_config(
+                        block,
+                        RpcBlockConfig {
+                            encoding: Some(UiTransactionEncoding::Base64),
+                            transaction_details: Some(TransactionDetails::None),
+                            rewards: Some(false),
+                            commitment: None,
+                        },
+                    )?
+                    .block_time
+                    .unwrap()) as f64
+                / (epoch_info.slot_index) as f64;
+            self.average_slot_time.set(average_slot_time);
+            Ok(Some(()))
+        })?;
+
+        Ok(())
+    }
+
+    /// Exports information about nodes
+    pub fn export_nodes_info(
+        &self,
+        nodes: &[RpcContactInfo],
+        client: &RpcClient,
+        node_whitelist: &Whitelist,
+    ) -> anyhow::Result<()> {
+        // Balance of node pubkeys. Only exported if a whitelist is set!
+        if !node_whitelist.0.is_empty() {
+            let balances = nodes
+                .iter()
+                .filter(|rpc| node_whitelist.contains(&rpc.pubkey))
+                .map(|rpc| {
+                    Ok((
+                        rpc.pubkey.clone(),
+                        client.get_balance(&rpc.pubkey.parse()?)?,
+                    ))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            for (pubkey, balance) in balances {
+                self.node_pubkey_balances
+                    .get_metric_with_label_values(&[&pubkey])
+                    .map(|c| c.set(balance as i64))?;
+            }
+        }
+
+        let nodes = nodes
+            .iter()
+            .filter(|rpc| node_whitelist.contains(&rpc.pubkey))
+            .collect::<Vec<_>>();
+
+        // Export number of nodes
+        self.nodes.set(nodes.len() as i64);
+
+        // Tally of node versions
+        let versions: HashMap<String, u32> = nodes.iter().fold(HashMap::new(), |mut map, rpc| {
+            *map.entry(rpc.version.clone().unwrap_or_else(|| "unknown".to_string()))
+                .or_insert(0) += 1;
+            map
+        });
+
+        for (version, count) in versions {
+            self.node_versions
+                .get_metric_with_label_values(&[&version])
+                .map(|c| c.set(count as i64))?;
+        }
 
         Ok(())
     }
@@ -188,9 +334,9 @@ impl PrometheusGauges {
         &self,
         nodes: &[RpcContactInfo],
         vote_accounts: &RpcVoteAccountStatus,
-        cache: &GeoCache,
-        whitelist: &Whitelist,
+        cache: &GeolocationCache,
         maxmind: &MaxMindAPIKey,
+        node_whitelist: &Whitelist,
     ) -> anyhow::Result<()> {
         // Define all types here
         type RpcInfo = (RpcContactInfo, RpcVoteAccountInfo);
@@ -220,14 +366,10 @@ impl PrometheusGauges {
         };
 
         // If whitelist exists, remove all non-listed pubkeys
-        let validator_nodes = if !whitelist.is_empty() {
-            validator_nodes
-                .into_iter()
-                .filter(|(contact, _)| whitelist.contains(&contact.pubkey))
-                .collect()
-        } else {
-            validator_nodes
-        };
+        let validator_nodes = validator_nodes
+            .into_iter()
+            .filter(|(contact, _)| node_whitelist.contains(&contact.pubkey))
+            .collect::<Vec<_>>();
 
         // Separate cached data from uncached data
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
@@ -353,6 +495,6 @@ impl PrometheusGauges {
 
 impl Default for PrometheusGauges {
     fn default() -> Self {
-        Self::new()
+        Self::new(Whitelist::default())
     }
 }

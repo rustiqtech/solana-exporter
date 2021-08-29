@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::config::{ExporterConfig, CONFIG_FILE_NAME};
+use crate::config::{ExporterConfig, Whitelist, CONFIG_FILE_NAME};
 use crate::gauges::PrometheusGauges;
 use crate::geolocation::api::MaxMindAPIKey;
-use crate::geolocation::caching::{GeoCache, GEO_DB_CACHE_TREE_NAME};
+use crate::geolocation::caching::{GeolocationCache, GEO_DB_CACHE_TREE_NAME};
 use crate::persistent_database::{PersistentDatabase, DATABASE_FILE_NAME};
+use crate::rewards::caching::{
+    RewardsCache, APY_TREE_NAME, EPOCH_LENGTH_TREE_NAME, EPOCH_REWARDS_TREE_NAME,
+    EPOCH_VOTER_APY_TREE_NAME,
+};
+use crate::rewards::RewardsMonitor;
 use crate::slots::SkippedSlotsMonitor;
 use anyhow::Context;
 use clap::{load_yaml, App};
 use log::{debug, warn};
 use solana_client::rpc_client::RpcClient;
-use std::collections::HashSet;
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::net::SocketAddr;
@@ -33,11 +37,12 @@ pub mod config;
 pub mod gauges;
 pub mod geolocation;
 pub mod persistent_database;
+pub mod rewards;
+pub mod rpc_extra;
 pub mod slots;
 
 /// Name of directory where solana-exporter will store information
 pub const EXPORTER_DATA_DIR: &str = ".solana-exporter";
-
 /// Current version of `solana-exporter`
 pub const SOLANA_EXPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -55,7 +60,8 @@ async fn main() -> anyhow::Result<()> {
                 rpc: "http://localhost:8899".to_string(),
                 target: SocketAddr::new("0.0.0.0".parse()?, 9179),
                 maxmind: Some(MaxMindAPIKey::new("username", "password")),
-                pubkey_whitelist: HashSet::default(),
+                vote_account_whitelist: Some(Whitelist::default()),
+                staking_account_whitelist: Some(Whitelist::default()),
             };
 
             let location = sc
@@ -126,26 +132,49 @@ and then put real values there.",
     let exporter = prometheus_exporter::start(config.target)?;
     let duration = Duration::from_secs(1);
     let client = RpcClient::new(config.rpc.clone());
-    let geolocation_cache = GeoCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
-    let gauges = PrometheusGauges::new();
+
+    let geolocation_cache =
+        GeolocationCache::new(persistent_database.tree(GEO_DB_CACHE_TREE_NAME)?);
+    let rewards_cache = RewardsCache::new(
+        persistent_database.tree(EPOCH_REWARDS_TREE_NAME)?,
+        persistent_database.tree(APY_TREE_NAME)?,
+        persistent_database.tree(EPOCH_LENGTH_TREE_NAME)?,
+        persistent_database.tree(EPOCH_VOTER_APY_TREE_NAME)?,
+    );
+
+    let vote_accounts_whitelist = config.vote_account_whitelist.unwrap_or_default();
+    let staking_account_whitelist = config.staking_account_whitelist.unwrap_or_default();
+
+    let gauges = PrometheusGauges::new(vote_accounts_whitelist.clone());
     let mut skipped_slots_monitor =
         SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent);
+    let mut rewards_monitor = RewardsMonitor::new(
+        &client,
+        &gauges.current_staking_apy,
+        &gauges.average_staking_apy,
+        &gauges.validator_rewards,
+        &rewards_cache,
+        &staking_account_whitelist,
+        &vote_accounts_whitelist,
+    );
 
     loop {
         let _guard = exporter.wait_duration(duration);
         debug!("Updating metrics");
 
         // Get metrics we need
-        let vote_accounts = client.get_vote_accounts()?;
         let epoch_info = client.get_epoch_info()?;
         let nodes = client.get_cluster_nodes()?;
+        let vote_accounts = client.get_vote_accounts()?;
+        let node_whitelist = rpc_extra::node_pubkeys(&vote_accounts_whitelist, &vote_accounts);
 
         gauges
             .export_vote_accounts(&vote_accounts)
             .context("Failed to export vote account metrics")?;
         gauges
-            .export_epoch_info(&epoch_info)
+            .export_epoch_info(&epoch_info, &client)
             .context("Failed to export epoch info metrics")?;
+        gauges.export_nodes_info(&nodes, &client, &node_whitelist)?;
         if let Some(maxmind) = config.maxmind.clone() {
             // If the MaxMind API is configured, submit queries for any uncached IPs.
             gauges
@@ -153,14 +182,17 @@ and then put real values there.",
                     &nodes,
                     &vote_accounts,
                     &geolocation_cache,
-                    &config.pubkey_whitelist,
                     &maxmind,
+                    &node_whitelist,
                 )
                 .await
                 .context("Failed to export IP address info metrics")?;
         }
         skipped_slots_monitor
-            .export_skipped_slots(&epoch_info)
+            .export_skipped_slots(&epoch_info, &node_whitelist)
             .context("Failed to export skipped slots")?;
+        rewards_monitor
+            .export_rewards(&epoch_info)
+            .context("Failed to export rewards")?;
     }
 }

@@ -69,6 +69,11 @@ ExecStart=/home/solana/.cargo/bin/solana-exporter
 WantedBy=multi-user.target
 ```
 
+Run it as a docker container.
+```shell
+docker run -d -v /path/to/your/config.toml:/etc/solana-exporter/config.toml -v solana-exporter-data:/exporter solana-exporter
+```
+
 ### Prometheus and Grafana Setup
 
 If querying a public RPC port, `solana-exporter` can be run from anywhere, not necessarily from the

@@ -8,33 +8,34 @@ use time::{Date, OffsetDateTime};
 pub const GEO_DB_CACHE_TREE_NAME: &str = "geolocation_cache";
 
 /// A caching database for geolocation information fetched from MaxMind.
-pub struct GeoCache {
-    db: sled::Tree,
+pub struct GeolocationCache {
+    tree: sled::Tree,
 }
 
-impl GeoCache {
+impl GeolocationCache {
     /// Creates a new cache with the name stored in `GEO_DB_CACHE_NAME`.
     pub fn new(tree: sled::Tree) -> Self {
-        Self { db: tree }
+        Self { tree }
     }
 
-    /// Adds an IP address and its corresponding information to the database
+    /// Adds an IP address and its corresponding information to the database. Returns the previously
+    /// inserted value, if it exists.
     pub fn add_ip_address(
         &self,
         ip_address: &IpAddr,
         info: &GeoInfo,
     ) -> anyhow::Result<Option<GeoInfo>> {
-        self.db
+        self.tree
             .insert(bincode::serialize(ip_address)?, bincode::serialize(info)?)
             .context("could not insert into database")?
             .map(|x| bincode::deserialize(&x))
             .transpose()
-            .context("could not deserialize the inserted GeoInfo")
+            .context("could not deserialize the previously inserted GeoInfo")
     }
 
-    /// Fetches the cached information about an IP address
+    /// Fetches the cached information about an IP address.
     pub fn fetch_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
-        self.db
+        self.tree
             .get(bincode::serialize(ip_address)?)
             .context("could not fetch from database")?
             .map(|x| bincode::deserialize(&x))
@@ -69,7 +70,7 @@ impl GeoCache {
 
     /// Removes cached information about an IP address.
     pub fn remove_ip_address(&self, ip_address: &IpAddr) -> anyhow::Result<Option<GeoInfo>> {
-        self.db
+        self.tree
             .remove(bincode::serialize(ip_address)?)
             .context("could not remove IP address")?
             .map(|x| bincode::deserialize(&x))
@@ -78,7 +79,7 @@ impl GeoCache {
     }
 }
 
-/// The value (in key-value) for the caching database, consisting of the structured response
+/// The value (in key-value) for the geolocation caching database, consisting of the structured response
 /// from the API alongside metadata such as when the data was fetched.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GeoInfo {
