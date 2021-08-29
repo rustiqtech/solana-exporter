@@ -35,10 +35,8 @@ In this example, we will make an alert that fires if a voting pubkey becomes del
 To test this alert, invert the query **(A)** with `solana_validator_delinquent{} == 0` and temporarily reduce the firing
 threshold from `12h` to a more responsive value. Within a few minutes, an alert should be fired.
 
-## Setting up an alert receiver on Discord
+## Receiving alert notifications
 
-[Discord](https://discord.com/) is a VoIP, instant messaging and digital distribution platform designed for creating
-communities. Grafana can send automated notifications to Discord to alert node operators of potential issues.
-
-1. [Add Discord as a notification channel in Grafana.](https://grafana.com/docs/grafana/latest/alerting/unified-alerting/contact-points/#discord)
-2. Be sure to enable Discord notifications for the relevant alerts.
+See [Grafana contact
+points](https://grafana.com/docs/grafana/latest/alerting/unified-alerting/contact-points/) on the multitude of ways of
+receiving Grafana alerts.
