@@ -1,7 +1,8 @@
-name: test mdbook
+name: deploy mdbook to github pages
 
 on:
-  pull_request:
+  release:
+    types: [published]
 
 defaults:
   run:
@@ -21,3 +22,9 @@ jobs:
           mdbook-version: 'latest'
 
       - run: mdbook build
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book/book
