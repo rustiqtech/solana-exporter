@@ -1,9 +1,14 @@
-rpc = "http://localhost:8899"
-target = "0.0.0.0:9179"
-pubkey_whitelist = [
-    "a",
-    "b",
-    "c"
+rpc = 'http://localhost:8899'
+target = '0.0.0.0:9179'
+vote_account_whitelist = [
+    'a',
+    'b',
+    'c'
+]
+staking_account_whitelist = [
+    'a',
+    'b',
+    'c'
 ]
 
 [maxmind]
