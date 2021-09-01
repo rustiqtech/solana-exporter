@@ -4,6 +4,8 @@ This is a Prometheus exporter for [Solana](https://github.com/solana-labs/solana
 on the [Golang original](https://github.com/certusone/solana_exporter) by CertusOne but now
 providing additional functionality. It is the basis for Grafana dashboards and status alerts.
 
+[View documentation here.](https://rustiqtech.github.io/solana-exporter/)
+
 ### Metrics
 
 The tool exports the following metrics:
@@ -33,17 +35,19 @@ The tool exports the following metrics:
 
 By default `solana-exporter` takes input config from `~/.solana-exporter/config.toml`. If it doesn't
 exist it can be generated with template values. Here is a demo example of a config file that works with the public mainnet RPC server and doesn't require running a validator or opening a MaxMind account:
-```
+```toml
 rpc = 'https://api.mainnet-beta.solana.com/'
 target = '127.0.0.1:9179'
-pubkey_whitelist = []
+vote_account_whitelist = []
+staking_account_whitelist = []
 ```
 
 Here is a production config template for monitoring the entire network via the local validator RPC port and getting server location data from MaxMind:
-```
+```toml
 rpc = 'http://localhost:8899/'
 target = '127.0.0.1:9179'
-pubkey_whitelist = []
+vote_account_whitelist = []
+staking_account_whitelist = []
 
 [maxmind]
 username = 'username'
@@ -71,7 +75,9 @@ WantedBy=multi-user.target
 
 Run it as a docker container.
 ```shell
-docker run -d -v /path/to/your/config.toml:/etc/solana-exporter/config.toml -v solana-exporter-data:/exporter solana-exporter
+docker run -d \
+-v /path/to/your/config.toml:/etc/solana-exporter/config.toml \
+-v solana-exporter-data:/exporter rustiq/solana-exporter:0.4.1
 ```
 
 ### Prometheus and Grafana Setup
@@ -80,7 +86,7 @@ If querying a public RPC port, `solana-exporter` can be run from anywhere, not n
 validator machine. If querying a private RPC port, install Prometheus on the validator machine. Add
 the following snippet to the `scrape_configs` section of the `prometheus.yml` config file:
 
-```
+```yaml
   - job_name: solana
     static_configs:
       - targets: ['localhost:9179']
