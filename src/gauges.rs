@@ -242,6 +242,9 @@ impl PrometheusGauges {
             self.root_slot
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
                 .map(|m| m.set(v.root_slot as i64))?;
+            self.staking_commission
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(v.commission as i64))?;
         }
 
         Ok(())
