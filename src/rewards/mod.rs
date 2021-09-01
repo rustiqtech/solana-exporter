@@ -75,6 +75,8 @@ pub struct RewardsMonitor<'a> {
     average_staking_apy: &'a GaugeVec,
     /// Prometheus cumulative validator rewards gauge.
     validator_rewards: &'a IntGaugeVec,
+    /// Prometheus staking commission gauge.
+    staking_commission: &'a IntGaugeVec,
     /// Caching database for rewards
     cache: &'a RewardsCache,
     /// The whitelist of staking account pubkeys constraining APY calculations.
@@ -90,6 +92,7 @@ impl<'a> RewardsMonitor<'a> {
         current_staking_apy: &'a GaugeVec,
         average_staking_apy: &'a GaugeVec,
         validator_rewards: &'a IntGaugeVec,
+        staking_commission: &'a IntGaugeVec,
         rewards_cache: &'a RewardsCache,
         staking_account_whitelist: &'a Whitelist,
         vote_accounts_whitelist: &'a Whitelist,
@@ -99,6 +102,7 @@ impl<'a> RewardsMonitor<'a> {
             current_staking_apy,
             average_staking_apy,
             validator_rewards,
+            staking_commission,
             cache: rewards_cache,
             staking_account_whitelist,
             vote_accounts_whitelist,
@@ -110,7 +114,7 @@ impl<'a> RewardsMonitor<'a> {
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch
-        if self.get_rewards_for_epoch(epoch)?.is_some() {
+        if let Some(rewards) = self.get_rewards_for_epoch(epoch)? {
             let staking_apys = self.calculate_staking_rewards(epoch_info)?;
 
             for (
@@ -136,6 +140,15 @@ impl<'a> RewardsMonitor<'a> {
                 self.validator_rewards
                     .get_metric_with_label_values(&[&v.voter])
                     .map(|c| c.set(v.lamports as i64))?;
+            }
+
+            for comm in rewards
+                .into_iter()
+                .filter(|reward| self.vote_accounts_whitelist.contains(&reward.pubkey))
+            {
+                self.staking_commission
+                    .get_metric_with_label_values(&[&comm.pubkey])
+                    .map(|c| c.set(comm.commission.unwrap_or_default() as i64))?;
             }
         }
         Ok(())

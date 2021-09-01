@@ -44,7 +44,7 @@ pub struct PrometheusGauges {
     pub skipped_slot_percent: GaugeVec,
     pub current_staking_apy: GaugeVec,
     pub average_staking_apy: GaugeVec,
-    pub staking_commission: GaugeVec,
+    pub staking_commission: IntGaugeVec,
     pub validator_rewards: IntGaugeVec,
     pub node_pubkey_balances: IntGaugeVec,
     pub node_versions: IntGaugeVec,
@@ -149,7 +149,7 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
-            staking_commission: register_gauge_vec!(
+            staking_commission: register_int_gauge_vec!(
                 "solana_staking_commission",
                 "Commission charged by staking validators",
                 &[PUBKEY_LABEL]
