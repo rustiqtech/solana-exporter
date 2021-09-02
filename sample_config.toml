@@ -6,9 +6,9 @@ vote_account_whitelist = [
     'c'
 ]
 staking_account_whitelist = [
-    'a',
-    'b',
-    'c'
+    'aa',
+    'bb',
+    'cc'
 ]
 
 [maxmind]
