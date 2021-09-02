@@ -151,7 +151,7 @@ impl PrometheusGauges {
             .unwrap(),
             staking_commission: register_int_gauge_vec!(
                 "solana_staking_commission",
-                "Commission charged by staking validators",
+                "Commission charged by staked validators",
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
