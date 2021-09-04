@@ -44,6 +44,7 @@ pub struct PrometheusGauges {
     pub skipped_slot_percent: GaugeVec,
     pub current_staking_apy: GaugeVec,
     pub average_staking_apy: GaugeVec,
+    pub staking_commission: IntGaugeVec,
     pub validator_rewards: IntGaugeVec,
     pub node_pubkey_balances: IntGaugeVec,
     pub node_versions: IntGaugeVec,
@@ -148,6 +149,12 @@ impl PrometheusGauges {
                 &[PUBKEY_LABEL]
             )
             .unwrap(),
+            staking_commission: register_int_gauge_vec!(
+                "solana_staking_commission",
+                "Commission charged by staked validators",
+                &[PUBKEY_LABEL]
+            )
+            .unwrap(),
             validator_rewards: register_int_gauge_vec!(
                 "solana_validator_rewards",
                 "Cumulative validator rewards in lamports",
@@ -235,6 +242,9 @@ impl PrometheusGauges {
             self.root_slot
                 .get_metric_with_label_values(&[&*v.vote_pubkey])
                 .map(|m| m.set(v.root_slot as i64))?;
+            self.staking_commission
+                .get_metric_with_label_values(&[&*v.vote_pubkey])
+                .map(|m| m.set(v.commission as i64))?;
         }
 
         Ok(())

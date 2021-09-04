@@ -22,13 +22,17 @@ where
 
 /// Maps vote pubkeys to node pubkeys based on the information provided in `vote_accounts`.
 pub fn node_pubkeys(vote_pubkeys: &Whitelist, vote_accounts: &RpcVoteAccountStatus) -> Whitelist {
-    Whitelist(
-        vote_accounts
-            .current
-            .iter()
-            .chain(vote_accounts.delinquent.iter())
-            .filter(|account| vote_pubkeys.contains(&account.vote_pubkey))
-            .map(|account| account.node_pubkey.clone())
-            .collect(),
-    )
+    if vote_pubkeys.0.is_empty() {
+        Whitelist::default()
+    } else {
+        Whitelist(
+            vote_accounts
+                .current
+                .iter()
+                .chain(vote_accounts.delinquent.iter())
+                .filter(|account| vote_pubkeys.contains(&account.vote_pubkey))
+                .map(|account| account.node_pubkey.clone())
+                .collect(),
+        )
+    }
 }

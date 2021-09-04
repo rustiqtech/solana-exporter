@@ -24,6 +24,7 @@
   - [solana_skipped_slot_percent](exported_feeds/solana_skipped_slot_percent.md)
   - [solana_current_staking_apy](exported_feeds/solana_current_staking_apy.md)
   - [solana_average_staking_apy](exported_feeds/solana_average_staking_apy.md)
+  - [solana_staking_commission](exported_feeds/solana_staking_commission.md)
   - [solana_validator_rewards](exported_feeds/solana_validator_rewards.md)
   - [solana_node_pubkey_balances](exported_feeds/solana_node_pubkey_balances.md)
   - [solana_node_versions](exported_feeds/solana_node_versions.md)
