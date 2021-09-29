@@ -585,7 +585,7 @@
           "refId": "A"
         }
       ],
-      "title": "Actived stake by ISP",
+      "title": "Active stake by ISP",
       "type": "piechart"
     },
     {
@@ -650,7 +650,7 @@
           "refId": "A"
         }
       ],
-      "title": "Activated stake by Datacenter",
+      "title": "Active stake by Datacenter",
       "type": "piechart"
     },
     {

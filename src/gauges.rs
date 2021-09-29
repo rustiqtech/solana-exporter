@@ -38,6 +38,7 @@ pub struct PrometheusGauges {
     pub current_epoch_first_slot: IntGauge,
     pub current_epoch_last_slot: IntGauge,
     pub isp_count: IntGaugeVec,
+    pub dc_count: IntGaugeVec,
     pub isp_by_stake: IntGaugeVec,
     pub dc_by_stake: IntGaugeVec,
     pub leader_slots: IntCounterVec,
@@ -111,6 +112,12 @@ impl PrometheusGauges {
                 "solana_active_validators_isp_count",
                 "ISP of active validators",
                 &["isp_name"]
+            )
+            .unwrap(),
+            dc_count: register_int_gauge_vec!(
+                "solana_active_validators_dc_count",
+                "Datacenters of active validators",
+                &["dc_identifier"]
             )
             .unwrap(),
             isp_by_stake: register_int_gauge_vec!(
@@ -295,24 +302,22 @@ impl PrometheusGauges {
         client: &RpcClient,
         node_whitelist: &Whitelist,
     ) -> anyhow::Result<()> {
-        // Balance of node pubkeys. Only exported if a whitelist is set!
-        if !node_whitelist.0.is_empty() {
-            let balances = nodes
-                .iter()
-                .filter(|rpc| node_whitelist.contains(&rpc.pubkey))
-                .map(|rpc| {
-                    Ok((
-                        rpc.pubkey.clone(),
-                        client.get_balance(&rpc.pubkey.parse()?)?,
-                    ))
-                })
-                .collect::<anyhow::Result<Vec<_>>>()?;
+        // Balance of node pubkeys.
+        let balances = nodes
+            .iter()
+            .filter(|rpc| node_whitelist.contains(&rpc.pubkey))
+            .map(|rpc| {
+                Ok((
+                    rpc.pubkey.clone(),
+                    client.get_balance(&rpc.pubkey.parse()?)?,
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
-            for (pubkey, balance) in balances {
-                self.node_pubkey_balances
-                    .get_metric_with_label_values(&[&pubkey])
-                    .map(|c| c.set(balance as i64))?;
-            }
+        for (pubkey, balance) in balances {
+            self.node_pubkey_balances
+                .get_metric_with_label_values(&[&pubkey])
+                .map(|c| c.set(balance as i64))?;
         }
 
         let nodes = nodes
@@ -460,20 +465,25 @@ impl PrometheusGauges {
         geolocations.append(&mut uncached);
 
         // Gauges
-        let mut isp_staked: HashMap<String, u64> = HashMap::new();
         let mut isp_count: HashMap<String, u64> = HashMap::new();
+        let mut dc_count: HashMap<DatacenterIdentifier, u64> = HashMap::new();
+        let mut isp_staked: HashMap<String, u64> = HashMap::new();
         let mut dc_staked: HashMap<DatacenterIdentifier, u64> = HashMap::new();
 
         for (_, validator, city) in &geolocations {
             let isp = &city.traits.isp;
 
-            // solana_active_validators_isp_stake
-            let s = isp_staked.entry(isp.clone()).or_default();
-            *s += validator.activated_stake;
-
             // solana_active_validators_isp_count
             let c = isp_count.entry(isp.clone()).or_default();
             *c += 1;
+
+            // solana_active_validators_dc_count
+            let v = dc_count.entry(city.clone().into()).or_default();
+            *v += 1;
+
+            // solana_active_validators_isp_stake
+            let s = isp_staked.entry(isp.clone()).or_default();
+            *s += validator.activated_stake;
 
             // solana_active_validators_dc_stake
             let dc = dc_staked.entry(city.clone().into()).or_default();
@@ -487,15 +497,21 @@ impl PrometheusGauges {
                 .map(|c| c.set(*count as i64))?;
         }
 
+        for (dc_id, count) in &dc_count {
+            self.dc_count
+                .get_metric_with_label_values(&[&dc_id.to_string()])
+                .map(|c| c.set(*count as i64))?;
+        }
+
         for (isp, staked) in &isp_staked {
             self.isp_by_stake
                 .get_metric_with_label_values(&[isp])
                 .map(|c| c.set(*staked as i64))?;
         }
 
-        for (identifier, staked) in &dc_staked {
+        for (dc_id, staked) in &dc_staked {
             self.dc_by_stake
-                .get_metric_with_label_values(&[&identifier.to_string()])
+                .get_metric_with_label_values(&[&dc_id.to_string()])
                 .map(|c| c.set(*staked as i64))?;
         }
 

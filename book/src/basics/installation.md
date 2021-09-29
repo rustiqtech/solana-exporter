@@ -40,14 +40,14 @@ WantedBy=multi-user.target
 `solana-exporter` is also available as a container which can be pulled by
 
 ```shell
-docker pull rustiq/solana-exporter:0.4.1
+docker pull rustiq/solana-exporter:latest
 ```
 
 Then run it with
 ```shell
 docker run -d \
 -v /path/to/your/config.toml:/etc/solana-exporter/config.toml \
--v solana-exporter-data:/exporter rustiq/solana-exporter:0.4.1
+-v solana-exporter-data:/exporter rustiq/solana-exporter:latest
 ```
 
 We recommend that the `config.toml` file be bind-mounted to the container, so you have easy access to it on the host

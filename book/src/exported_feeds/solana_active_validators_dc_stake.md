@@ -18,17 +18,7 @@ solana_active_validators_dc_stake{dc_identifier="15169-BE-Brussels"} 73796460037
 ```
 
 ## Remarks
-This gauge will not be exported if no MaxMind API key is present in `config.toml`.
-
-The identifier is of the format:
-```
-{AS number}-{ISO-3166-1 Alpha-2 code}-{City name}
-```
-if a city name is available, otherwise:
-```
-{AS number}-{ISO-3166-1 Alpha-2 code}
-```
+Same remarks apply as in the case of [`solana_active_validators_dc_count`](solana_active_validators_dc_count.md#Remarks).
 
 ## Caching
-The output of this gauge relies on cached data; the exporter retains the geolocation information of an IP address
-for one week before considering it stale and re-acquiring it from MaxMind.
+Caching works in the same way as in the case of [`solana_active_validators_dc_count`](solana_active_validators_dc_count.md#Caching).
