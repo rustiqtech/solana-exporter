@@ -258,7 +258,7 @@ impl PrometheusGauges {
     }
 
     /// Exports gauges for epoch
-    pub fn export_epoch_info(
+    pub async fn export_epoch_info(
         &self,
         epoch_info: &EpochInfo,
         client: &RpcClient,
@@ -290,7 +290,8 @@ impl PrometheusGauges {
                 / (epoch_info.slot_index) as f64;
             self.average_slot_time.set(average_slot_time);
             Ok(Some(()))
-        })?;
+        })
+        .await?;
 
         Ok(())
     }

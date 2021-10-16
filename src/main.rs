@@ -161,7 +161,7 @@ and then put real values there.",
     loop {
         {
             let _guard = exporter.wait_duration(duration);
-        };
+        }
         debug!("Updating metrics");
 
         // Get metrics we need
@@ -175,6 +175,7 @@ and then put real values there.",
             .context("Failed to export vote account metrics")?;
         gauges
             .export_epoch_info(&epoch_info, &client)
+            .await
             .context("Failed to export epoch info metrics")?;
         gauges.export_nodes_info(&nodes, &client, &node_whitelist)?;
         if let Some(maxmind) = config.maxmind.clone() {
@@ -190,12 +191,14 @@ and then put real values there.",
                 .await
                 .context("Failed to export IP address info metrics")?;
         }
+
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info, &node_whitelist)
             .await
             .context("Failed to export skipped slots")?;
         rewards_monitor
             .export_rewards(&epoch_info)
+            .await
             .context("Failed to export rewards")?;
     }
 }
