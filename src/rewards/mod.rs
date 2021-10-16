@@ -13,6 +13,7 @@ use solana_sdk::{clock::Epoch, epoch_info::EpochInfo, pubkey::Pubkey};
 use solana_stake_program::stake_state::StakeState;
 use solana_transaction_status::{Reward, Rewards, TransactionDetails, UiTransactionEncoding};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 use std::u64;
 use time::OffsetDateTime;
 
@@ -81,6 +82,8 @@ pub struct RewardsMonitor<'a> {
     staking_account_whitelist: &'a Whitelist,
     /// The whitelist of vote account pubkeys
     vote_accounts_whitelist: &'a Whitelist,
+    /// The lock on the update task.
+    update_lock: Arc<Mutex<()>>,
 }
 
 impl<'a> RewardsMonitor<'a> {
@@ -102,11 +105,17 @@ impl<'a> RewardsMonitor<'a> {
             cache: rewards_cache,
             staking_account_whitelist,
             vote_accounts_whitelist,
+            update_lock: Arc::default(),
         }
     }
 
     /// Exports reward metrics. APY values will not be re-calculated more than once an epoch.
     pub fn export_rewards(&mut self, epoch_info: &EpochInfo) -> anyhow::Result<()> {
+        let guard = self.update_lock.try_lock();
+        if guard.is_err() {
+            return Ok(());
+        }
+
         let epoch = epoch_info.epoch;
 
         // Possible that rewards haven't shown up yet for this epoch

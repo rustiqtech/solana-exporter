@@ -385,12 +385,10 @@ impl PrometheusGauges {
         // If whitelist exists, remove all non-listed pubkeys
         let validator_nodes = validator_nodes
             .into_iter()
-            .filter(|(contact, _)| node_whitelist.contains(&contact.pubkey))
-            .collect::<Vec<_>>();
+            .filter(|(contact, _)| node_whitelist.contains(&contact.pubkey));
 
         // Separate cached data from uncached data
         let (cached, uncached): (Vec<RpcInfoMaybeGeo>, Vec<RpcInfoMaybeGeo>) = validator_nodes
-            .into_iter()
             .map(|(contact, vote)| {
                 let cached = cache
                     .fetch_ip_address_with_invalidation(

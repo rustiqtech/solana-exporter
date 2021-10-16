@@ -159,7 +159,9 @@ and then put real values there.",
     );
 
     loop {
-        let _guard = exporter.wait_duration(duration);
+        {
+            let _guard = exporter.wait_duration(duration);
+        };
         debug!("Updating metrics");
 
         // Get metrics we need
@@ -190,6 +192,7 @@ and then put real values there.",
         }
         skipped_slots_monitor
             .export_skipped_slots(&epoch_info, &node_whitelist)
+            .await
             .context("Failed to export skipped slots")?;
         rewards_monitor
             .export_rewards(&epoch_info)
